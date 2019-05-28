@@ -80,14 +80,17 @@ class LanguageModel(torch.nn.Module):
         print('warning: token not found {0}'.format(input_string[0:1]))
       input_string = input_string[1:]
     #print(tokens)
-    return torch.LongTensor(tokens)
+    return torch.LongTensor(tokens).unsqueeze(0)
 
   def forward(self, x):
-    for layer in self.layers:
+    for (idx, layer) in enumerate(self.layers):
 #      print("running layer %s" % layer)
       if layer in self.stateful_layers:
-        x, new_state = layer.forward(x, self.layer_states.get(layer))
-        self.layer_states[layer] = new_state
+        x, new_state = layer.forward(x, self.layer_states.get(idx))
+        self.layer_states[idx] = new_state
       else:
         x = layer.forward(x)
     return x
+
+  def get_state(self, batch_idx = None):
+    return { key:(value.cpu()) if (value.is_cuda) else (value.clone()) for (key, value) in self.layer_states }
