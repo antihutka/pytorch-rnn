@@ -2,6 +2,7 @@ import LanguageModel
 import torch
 import sampling
 import argparse
+import modules as M
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint', default='models/test.json')
@@ -31,7 +32,7 @@ sampler = sampling.Sampler(model)
 #  tm,
 #  sampling.StopOnToken([model.token_to_idx[b'\n']])]
 
-stor = sampling.DefaultStateStore(model)
+stor = M.DefaultStateStore(model)
 pc = sampling.default_put_chains(stor)
 gc = sampling.default_get_chains(stor)
 
@@ -39,7 +40,7 @@ gc = sampling.default_get_chains(stor)
 #print(gc.__dict__)
 
 
-gc.sample_post += [sampling.PrintSampledString(model)]
+gc.sample_post += [M.PrintSampledString(model)]
 
 sampler.run_requests([sampler.make_put_request(pc, model.encode_string('Hello!\n'))])
 print('ok!')
