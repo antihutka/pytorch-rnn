@@ -11,6 +11,7 @@ readline.parse_and_bind('set editing-mode vi')
 parser = argparse.ArgumentParser()
 parser.add_argument('--checkpoint', default='models/test.json')
 parser.add_argument('--maxlength', default=1024, type=int)
+parser.add_argument('--temperature', default=1.0, type=float)
 args = parser.parse_args()
 
 model = LanguageModel.LanguageModel()
@@ -21,7 +22,7 @@ sampler = sampling.Sampler(model)
 
 stor = M.DefaultStateStore(model)
 pc = sampling.default_put_chains(stor)
-gc = sampling.default_get_chains(stor, endtoken = [model.token_to_idx[b'\n']], maxlength=args.maxlength)
+gc = sampling.default_get_chains(stor, endtoken = [model.token_to_idx[b'\n']], maxlength=args.maxlength, temperature = args.temperature)
 
 #print(pc.__dict__)
 #print(gc.__dict__)
