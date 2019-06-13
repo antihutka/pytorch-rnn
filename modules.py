@@ -5,11 +5,10 @@ class DefaultStateStore:
   def __init__(self, model):
     self.last_token = {}
     self.states = {}
-    self.outputs = {}
     self.model = model
   def forward(self, request):
     key = request.key
-    if key in self.outputs:
+    if key in self.last_token:
       request.initial_token = self.last_token[key]
     else:
       request.initial_token = 0 # we'll do something better here later
@@ -17,8 +16,10 @@ class DefaultStateStore:
       request.initial_state = self.states[key]
     else:
       request.initial_state = None
+    #print('loaded state for "%s"' % key, request.initial_state, request.initial_token)
   def backward(self, request):
     key = request.key
+    #print('saving state for "%s"' % key, request.final_state, request.last_token)
     self.last_token[key] = request.last_token
     self.states[key] = request.final_state
 
@@ -75,8 +76,12 @@ class HardLengthLimit:
 
 class GetForcedInput:
   def post(self, sample):
+    if (sample.request.forced_input.dim() > 1):
+      assert sample.request.forced_input.dim() == 2
+      assert sample.request.forced_input.size(0) == 1
+      sample.request.forced_input = sample.request.forced_input[0]
     pos = sample.forced_pos if hasattr(sample, 'forced_pos') else 0
-    sample.token_add(sample.request.forced_input[pos], None, sample.model_next_states[0])
+    sample.token_add(sample.request.forced_input[pos].item(), None, sample.model_next_states[0])
     sample.forced_pos = pos + 1
     if sample.forced_pos >= len(sample.request.forced_input):
       sample.finished = True

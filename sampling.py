@@ -48,6 +48,7 @@ class Sample:
     self.probs = []
     self.finished = False
   def token_add(self, token, probs, state):
+    #print('adding token ', token)
     self.sampled_sequence += [token]
     self.input_tokens += [token]
     self.states += [state]
