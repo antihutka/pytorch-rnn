@@ -1,5 +1,6 @@
 import sampling
 import torch
+import math
 
 class DefaultStateStore:
   def __init__(self, model):
@@ -91,3 +92,18 @@ class PrintSampledString:
     self.model = model
   def post(self, sample):
     print('=> %s' % (self.model.decode_string(sample.sampled_sequence).decode(errors='replace')))
+
+class BlockBadWords:
+  def __init__(self, model, badwords):
+    self.model = model
+    self.badwords = badwords
+  def post(self, sample):
+    decoded = self.model.decode_string(sample.sampled_sequence).decode(errors='replace').lower()
+    if not hasattr(sample, 'bw_fails'):
+      sample.bw_fails = {}
+    if any((decoded.endswith(w.lower()) for w in self.badwords)):
+      fails = sample.bw_fails.get(decoded, 0) + 1
+      todel = max(1, math.floor(math.sqrt(fails)))
+      sample.bw_fails[decoded] = fails
+#      print('bad word detected, fails %d todel %d' % (fails, todel))
+      sample.token_del(todel, True)

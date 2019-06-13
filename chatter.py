@@ -27,10 +27,32 @@ gc = sampling.default_get_chains(stor, endtoken = [model.token_to_idx[b'\n']], m
 #print(pc.__dict__)
 #print(gc.__dict__)
 
-gc.sample_post += [M.PrintSampledString(model)]
+badword_mod = M.BlockBadWords(model, [])
+
+gc.sample_post += [M.PrintSampledString(model), badword_mod]
+
+def in_msg(line):
+  if line != '':
+    sampler.run_requests([sampler.make_put_request(pc, model.encode_string(line + '\n'))])
+  sampler.run_requests([sampler.make_get_request(gc)])
+
+def in_cmd(line):
+  if ' ' not in line:
+    line += ' '
+  [cmd, arg] = line.split(' ', 1)
+  if (cmd == 'abw' and arg != ''):
+    badword_mod.badwords.append(arg)
+  elif (cmd == 'pbw'):
+    print('current bad words: ', badword_mod.badwords)
+  else:
+    print('unknown command %s' % cmd)
 
 while True:
     line = input('>')
-    if line != '':
-      sampler.run_requests([sampler.make_put_request(pc, model.encode_string(line + '\n'))])
-    sampler.run_requests([sampler.make_get_request(gc)])
+    if line.startswith('//'):
+      in_msg(line[1:])
+    elif line.startswith('/'):
+      in_cmd(line[1:])
+    else:
+      in_msg(line)
+

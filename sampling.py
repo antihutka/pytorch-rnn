@@ -53,6 +53,19 @@ class Sample:
     self.input_tokens += [token]
     self.states += [state]
     self.probs += [probs]
+  def token_del(self, cnt, soft_cnt = False):
+    if soft_cnt:
+      cnt = min(
+        cnt,
+        len(self.sampled_sequence),
+        len(self.input_tokens) - 1,
+        len(self.states) - 1,
+        len(self.probs))
+    assert (cnt > 0 and len(self.sampled_sequence) >= cnt)
+    del self.sampled_sequence[-cnt:]
+    del self.input_tokens[-cnt:]
+    del self.states[-cnt:]
+    del self.probs[-cnt:]
 
 class SamplerChains():
   def __init__(self, request_chain, sample_pre, sample_post):
