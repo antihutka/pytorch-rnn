@@ -103,7 +103,7 @@ class BlockBadWords:
       sample.bw_fails = {}
     if any((decoded.endswith(w.lower()) for w in self.badwords)):
       fails = sample.bw_fails.get(decoded, 0) + 1
-      todel = max(1, math.floor(math.sqrt(fails)))
+      todel = max(1, math.floor(fails/3))
       sample.bw_fails[decoded] = fails
 #      print('bad word detected, fails %d todel %d' % (fails, todel))
       sample.token_del(todel, True)
