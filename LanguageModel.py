@@ -82,6 +82,9 @@ class LanguageModel(torch.nn.Module):
     #print(tokens)
     return torch.LongTensor(tokens).unsqueeze(0)
 
+  def decode_string(self, input_sequence):
+    return b''.join([self.idx_to_token[x] for x in input_sequence])
+
   def forward(self, x):
     for (idx, layer) in enumerate(self.layers):
 #      print("running layer %s" % layer)
@@ -92,5 +95,26 @@ class LanguageModel(torch.nn.Module):
         x = layer.forward(x)
     return x
 
+  def forward_with_states(self, x, h0_split):
+#    print('h0_split', h0_split)
+    batchsize = x.size(0)
+    hn = [{} for i in range(batchsize)]
+    for (layeridx, layer) in enumerate(self.layers):
+      if layer in self.stateful_layers:
+        h0 = layer.new_state(x)
+        for batchidx in h0_split:
+          if h0_split[batchidx] is not None:
+            h0[batchidx].copy_(h0_split[batchidx][layeridx])
+#        if (layeridx == 3):
+#          print('in', h0)
+        x, new_state = layer.forward(x, h0)
+#        if (layeridx == 3):
+#          print('out', new_state)
+        for batchidx in range(batchsize):
+          hn[batchidx][layeridx] = new_state[batchidx]
+      else:
+        x = layer.forward(x)
+    return (x, hn)
+
   def get_state(self, batch_idx = None):
-    return { key:(value.cpu()) if (value.is_cuda) else (value.clone()) for (key, value) in self.layer_states }
+    return { layerid:(tensor.cpu()) if (tensor.is_cuda) else (tensor.clone()) for (layerid, tensor) in self.layer_states }

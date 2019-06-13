@@ -17,7 +17,7 @@ class RNNLinear(Module):
       self.weight = Parameter(weight)
       assert bias is not None
       assert bias.dim() == 1
-      print(self.output_dim)
+#      print(self.output_dim)
       assert bias.size(0) == self.output_dim
       self.bias = Parameter(bias)
   def forward(self, x):

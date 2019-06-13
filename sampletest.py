@@ -36,15 +36,19 @@ start = time.time()
 
 inp = torch.LongTensor(1,1)
 
+states = {}
+
 with torch.no_grad():
   for i in range(0,200):
     probs = out.double().div(1).exp().squeeze()
     probs.div_(probs.sum())
     next_char_idx = torch.multinomial(probs, 1).item()
-#  sys.stdout.write(model.idx_to_token[next_char_idx].decode(errors='ignore'))
-#  sys.stdout.flush()
+    sys.stdout.write(model.idx_to_token[next_char_idx].decode(errors='ignore'))
+    sys.stdout.flush()
     inp[0,0] = next_char_idx
-    out = model.forward(inp)[:, -1]
+    #out = model.forward(inp)[:, -1]
+    out, outstates = model.forward_with_states(inp, states)
+    states[0] = outstates[0]
 #    if i % 100 == 0:
 #      print("memory @ %d: %.2f" % (i, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024))
 

@@ -42,6 +42,11 @@ class GRIDGRU(torch.nn.Module):
     Whtc = W[D:, 2*H:3*H]
     return Wxt, Wxd, Whd, Whtg, Whtc
 
+  def new_state(self, x):
+    N = x.size(0)
+    H = self.hidden_dim
+    return x.new(N,H).zero_()
+
   def forward(self, x, state = None):
     Wxt, Wxd, Whd, Whtg, Whtc = self.get_weights()
     N = x.size(0)
@@ -51,7 +56,7 @@ class GRIDGRU(torch.nn.Module):
     assert x.size(2) == D
     prev_ht = None
     if state is None:
-      prev_ht = x.new(N, H).zero_()
+      prev_ht = self.new_state(x)
     else:
       assert state.dim() == 2
       assert state.size(0) == N and state.size(1) == H
