@@ -96,13 +96,12 @@ class GRIDGRU(torch.nn.Module):
       if self.training:
         F.dropout(ud_b, p=self.zoneoutd, training=self.training, inplace=True)
       ud_b.mul_(1-self.zoneoutd)
-
-    bfr2 = torch.mul(rd_b, x).view(N*T, -1)
+    bfr2 = torch.mul(rd_b.view(N, T, -1), x).view(N*T, -1)
     hcd_b.addmm_(bfr2, Wxd[:, 2*D:3*D])
 
     hcd_b.tanh_()
-    h=torch.addcmul(x, -1, ud_b, x)
-    h.addcmul_(ud_b, hcd_b)
+    h=torch.addcmul(x, -1, ud_b.view(N, T, -1), x)
+    h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
     return (h, next_ht)
 
 

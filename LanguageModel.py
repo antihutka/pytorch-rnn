@@ -96,7 +96,6 @@ class LanguageModel(torch.nn.Module):
     return x
 
   def forward_with_states(self, x, h0_split):
-#    print('h0_split', h0_split)
     batchsize = x.size(0)
     hn = [{} for i in range(batchsize)]
     for (layeridx, layer) in enumerate(self.layers):
@@ -105,11 +104,7 @@ class LanguageModel(torch.nn.Module):
         for batchidx in h0_split:
           if h0_split[batchidx] is not None:
             h0[batchidx].copy_(h0_split[batchidx][layeridx])
-#        if (layeridx == 3):
-#          print('in', h0)
         x, new_state = layer.forward(x, h0)
-#        if (layeridx == 3):
-#          print('out', new_state)
         for batchidx in range(batchsize):
           hn[batchidx][layeridx] = new_state[batchidx]
       else:
