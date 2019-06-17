@@ -23,7 +23,7 @@ model.eval()
 
 sampler = sampling.Sampler(model)
 
-stor = M.DefaultStateStore(model)
+stor = M.DefaultStateStore(model, default_token = model.token_to_idx[b'\n'])
 pc = sampling.default_put_chains(stor)
 gc = sampling.default_get_chains(stor, endtoken = [model.token_to_idx[b'\n']], maxlength=args.maxlength, temperature = args.temperature)
 

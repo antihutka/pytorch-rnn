@@ -3,16 +3,17 @@ import torch
 import math
 
 class DefaultStateStore:
-  def __init__(self, model):
+  def __init__(self, model, default_token = 0):
     self.last_token = {}
     self.states = {}
     self.model = model
+    self.default_token = default_token
   def forward(self, request):
     key = request.key
     if key in self.last_token:
       request.initial_token = self.last_token[key]
     else:
-      request.initial_token = 0 # we'll do something better here later
+      request.initial_token = self.default_token # we'll do something better here later
     if key in self.states:
       request.initial_state = self.states[key]
     else:
