@@ -37,6 +37,13 @@ class SamplerRequest:
   def __init__(self, key, chains):
     self.chains = chains
     self.key = key
+  def run_inchain(self):
+    for mod in self.chains.request_chain:
+      mod.forward(self)
+  def run_outchain(self):
+    assert all((s.finished for s in self.samples))
+    for mod in reversed(self.chains.request_chain):
+      mod.backward(self)
 
 class Sample:
   def __init__(self, request, chains, initial_state, initial_token):
@@ -99,34 +106,30 @@ class Sampler():
     rq.forced_input = sequence
     return rq
 
+  def single_step(self, samples):
+    for s in samples:
+      for mod in s.chains.sample_pre:
+        mod.pre(s)
+    nn_inputs = torch.LongTensor(util.ljoin([s.model_input_token for s in samples]))
+    nn_states, nn_lengths = util.ljoinl([s.model_input_state for s in samples])
+    nn_states = {k:v for k,v in enumerate(nn_states)}
+    with torch.no_grad():
+      nn_outputs, nn_outstates = self.model.forward_with_states(nn_inputs.unsqueeze(1), nn_states)
+    nn_outputs_split = util.lsplitl(nn_outputs, nn_lengths)
+    nn_outstates_split = util.lsplitl(nn_outstates, nn_lengths)
+    for i,s in enumerate(samples):
+      s.model_output_scores = nn_outputs_split[i]
+      s.model_next_states = nn_outstates_split[i]
+      for mod in s.chains.sample_post:
+        mod.post(s)
+
   def run_requests(self, requests):
     for rq in requests:
-      for mod in rq.chains.request_chain:
-        mod.forward(rq)
+      rq.run_inchain()
     samples = util.ljoin([rq.samples for rq in requests])
     while samples:
-      for s in samples:
-        for mod in s.chains.sample_pre:
-          mod.pre(s)
-      #print(samples[0].model_input_token)
-      nn_inputs = torch.LongTensor(util.ljoin([s.model_input_token for s in samples]))
-      nn_states, nn_lengths = util.ljoinl([s.model_input_state for s in samples])
-      nn_states = {k:v for k,v in enumerate(nn_states)}
-#      print("instate", nn_states[0])
-      with torch.no_grad():
-        nn_outputs, nn_outstates = self.model.forward_with_states(nn_inputs.unsqueeze(1), nn_states)
-#      print("outstate", nn_outstates[0])
-      nn_outputs_split = util.lsplitl(nn_outputs, nn_lengths)
-      nn_outstates_split = util.lsplitl(nn_outstates, nn_lengths)
-#      print(nn_outstates_split[0])
-      for i,s in enumerate(samples):
-        s.model_output_scores = nn_outputs_split[i]
-        s.model_next_states = nn_outstates_split[i]
-#        print(s.model_next_states)
-        for mod in s.chains.sample_post:
-          mod.post(s)
+      self.single_step(samples)
       for s in [s for s in samples if s.finished]:
         samples.remove(s)
     for rq in requests:
-      for mod in reversed(rq.chains.request_chain):
-        mod.backward(rq)
+      rq.run_outchain()
