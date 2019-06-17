@@ -46,7 +46,7 @@ async def put(request):
   args = await request.json()
   key = args.get('key', '')
   text = args['text']
-  await run_request(sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n')))
+  await run_request(sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n'), key=key))
   resp = {'result': 'ok'}
   return web.Response(body=encode(resp), content_type='application/json')
 
@@ -60,7 +60,7 @@ async def get(request):
   if 'ending_tokens' in args:
     ending_tokens = [model.token_to_idx[tok.encode('utf8')] for tok in args['ending_tokens']]
   get_chain = sampling.default_get_chains(stor, maxlength=maxlength, temperature = temperature, endtoken = ending_tokens)
-  rq = await run_request(sampler.sampler.make_get_request(get_chain))
+  rq = await run_request(sampler.sampler.make_get_request(get_chain, key=key))
   text = model.decode_string(rq.sampled_sequence).decode('utf8', 'ignore')
   resp = {'result': 'ok', 'text': text}
   return web.Response(body=encode(resp), content_type='application/json')
