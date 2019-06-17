@@ -35,7 +35,6 @@ class SimpleSampling:
     request.last_token = sample.sampled_sequence[-1]
     request.final_state = sample.states[-1]
     request.sampled_sequence = sample.sampled_sequence
-    print('running backward')
 
 class PrepareInput:
   def pre(self, sample):

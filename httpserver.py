@@ -21,8 +21,6 @@ default_ending_token = model.token_to_idx[b'\n']
 
 stor = M.DefaultStateStore(model, default_token = default_ending_token)
 put_chain = sampling.default_put_chains(stor)
-#gc = sampling.default_get_chains(stor, endtoken = [default_ending_token], maxlength=args.maxlength, temperature = args.temperature)
-#badword_mod = M.BlockBadWords(model, [])
 
 def encode(data):
   return json.dumps(data, indent=4).encode('utf-8')
@@ -33,7 +31,7 @@ def get_option(args, option):
 async def run_request(rq):
   evt = Event()
   loop = asyncio.get_event_loop()
-  sampler.run_request(rq, lambda: (print('done'), loop.call_soon_threadsafe(evt.set)))
+  sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
   await evt.wait()
   return rq
 
