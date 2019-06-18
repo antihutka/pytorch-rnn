@@ -8,6 +8,7 @@ import modules as M
 import asyncio
 from asyncio import Event
 import json
+import statsrequest
 
 config = ConfigParser()
 config.read(sys.argv[1])
@@ -49,11 +50,26 @@ async def run_request(rq):
     await evt.wait()
   return rq
 
+async def run_request_nl(rq):
+  evt = Event()
+  loop = asyncio.get_event_loop()
+  sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
+  await evt.wait()
+  return rq
+
 routes = web.RouteTableDef()
 
 @routes.get('/')
 async def stats(request):
-  return web.Response(text='pytorch-rnn server stats')
+  text = 'pytorch-rnn server stats\n'
+  text += 'Pending samples:\n'
+  for (k,v) in locks.items():
+    if (v._locked):
+      text += "%s => %d\n" % (k, len(v._waiters))
+  rq = statsrequest.StatsRequest(sampler.sampler)
+  await run_request_nl(rq)
+  text += 'elapsed: %.3f' % rq.elapsed
+  return web.Response(text=text)
 
 @routes.post('/put')
 async def put(request):
