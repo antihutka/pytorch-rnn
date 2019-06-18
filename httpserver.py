@@ -19,7 +19,16 @@ model.eval()
 sampler = samplingthread.SamplerServer(model)
 default_ending_token = model.token_to_idx[b'\n']
 
-stor = M.DefaultStateStore(model, default_token = default_ending_token)
+stortype = config.get('store', 'type')
+
+if stortype == 'memory':
+  stor = M.DefaultStateStore(model, default_token = default_ending_token)
+elif stortype == 'sqlite':
+  import sqlitestore
+  stor = sqlitestore.SQLiteStateStore(model, config.get('store', 'dbpath'), default_token = default_ending_token)
+else:
+  raise Exception('Unknown store type', stortype)
+
 put_chain = sampling.default_put_chains(stor)
 
 def encode(data):
