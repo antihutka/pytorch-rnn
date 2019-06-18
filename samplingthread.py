@@ -7,6 +7,7 @@ class SamplerServer():
     self.sampler = sampling.Sampler(model)
     self.queue = queue.Queue()
     self.thread = Thread(target=self.threadmain)
+    self.thread.daemon = True
     self.stopped = True
     self.thread.start()
   def stop(self):
