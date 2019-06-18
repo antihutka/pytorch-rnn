@@ -28,11 +28,16 @@ def encode(data):
 def get_option(args, option):
   return args.get(option, config.get('defaults', option))
 
+locks = {}
+
 async def run_request(rq):
   evt = Event()
   loop = asyncio.get_event_loop()
-  sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
-  await evt.wait()
+  if rq.key not in locks:
+    locks[rq.key] = asyncio.Lock()
+  async with locks[rq.key]:
+    sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
+    await evt.wait()
   return rq
 
 routes = web.RouteTableDef()
