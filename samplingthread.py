@@ -35,14 +35,13 @@ class SamplerServer():
       if (not requests) and stop:
         return
       self.sampler.single_step(samples)
-      for s in samples:
-        if s.finished:
-          samples.remove(s)
-          if all([rs.finished for rs in s.request.samples]):
-            requests.remove(s.request)
-            s.request.run_outchain()
-            s.request.on_finish()
-            self.queue.task_done()
+      for s in [s for s in samples if s.finished]:
+        samples.remove(s)
+        if all([rs.finished for rs in s.request.samples]):
+          requests.remove(s.request)
+          s.request.run_outchain()
+          s.request.on_finish()
+          self.queue.task_done()
 
   def run_request_sync(self, request):
     evt = Event()
