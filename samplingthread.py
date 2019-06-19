@@ -52,10 +52,10 @@ class SamplerServer():
           samples.remove(s)
       for r in requests:
         if all([rs.finished for rs in r.samples]):
-          requests.remove(r)
           r.run_outchain()
           r.finished = True
           r.on_finish()
+          requests.remove(r)
           self.queue.task_done()
 
   def run_request_sync(self, request):

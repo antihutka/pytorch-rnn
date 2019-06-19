@@ -68,9 +68,12 @@ async def stats(request):
   for (k,v) in locks.items():
     if (v._locked):
       text += "%s => %d\n" % (k, len(v._waiters))
-  rq = statsrequest.StatsRequest(sampler.sampler)
-  await run_request_nl(rq)
-  text += 'elapsed: %.3f' % rq.elapsed
+  try:
+    rq = statsrequest.StatsRequest(sampler.sampler)
+    await run_request_nl(rq)
+    text += 'elapsed: %.3f' % rq.elapsed
+  except Exception:
+    text += "Error getting stats"
   return web.Response(text=text)
 
 @routes.post('/put')
