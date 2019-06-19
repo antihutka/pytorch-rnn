@@ -48,6 +48,7 @@ async def run_request(rq):
   async with locks[rq.key]:
     sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
     await evt.wait()
+    assert rq.finished
   return rq
 
 async def run_request_nl(rq):
@@ -55,6 +56,7 @@ async def run_request_nl(rq):
   loop = asyncio.get_event_loop()
   sampler.run_request(rq, lambda: loop.call_soon_threadsafe(evt.set))
   await evt.wait()
+  assert rq.finished
   return rq
 
 routes = web.RouteTableDef()
