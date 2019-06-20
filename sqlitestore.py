@@ -38,3 +38,4 @@ class SQLiteStateStore:
     self.writes += 1
     if self.writes > self.commit_every:
       self.t.conn.commit()
+      self.writes = 0
