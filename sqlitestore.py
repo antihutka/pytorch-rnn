@@ -3,7 +3,7 @@ import pickle
 import threading
 
 class SQLiteStateStore:
-  def __init__(self, model, db_path, default_token=0):
+  def __init__(self, model, db_path, default_token=0, commit_every = 1024):
     self.t = threading.local()
     self.db_path = db_path
     self.opendb()
@@ -11,11 +11,14 @@ class SQLiteStateStore:
     self.default_token = default_token
     self.t.conn.execute("CREATE TABLE IF NOT EXISTS states (key TEXT PRIMARY KEY, last_token INTEGER, state BINARY)")
     self.t.conn.commit()
+    self.writes = 0
+    self.commit_every = commit_every
 
   def opendb(self):
     if hasattr(self.t, 'conn'):
       return
     self.t.conn = sqlite3.connect(self.db_path)
+    self.t.conn.execute("PRAGMA journal_mode=WAL")
 
   def forward(self, request):
     self.opendb()
@@ -32,4 +35,6 @@ class SQLiteStateStore:
   def backward(self, request):
     self.opendb()
     self.t.conn.execute("INSERT OR REPLACE INTO states (key, last_token, state) VALUES (?,?,?)", (request.key, request.last_token, pickle.dumps(request.final_state)))
-    self.t.conn.commit()
+    self.writes += 1
+    if self.writes > self.commit_every:
+      self.t.conn.commit()
