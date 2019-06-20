@@ -91,10 +91,13 @@ async def get(request):
   key = args.get('key', '')
   temperature = float(get_option(args, 'temperature'))
   maxlength = int(get_option(args, 'maxlength'))
+  bw = args.get('bad_words', [])
   ending_tokens = [default_ending_token]
   if 'ending_tokens' in args:
     ending_tokens = [model.token_to_idx[tok.encode('utf8')] for tok in args['ending_tokens']]
   get_chain = sampling.default_get_chains(stor, maxlength=maxlength, temperature = temperature, endtoken = ending_tokens)
+  if bw:
+    get_chain.sample_post.append(M.BlockBadWords(model, bw))
   rq = await run_request(sampler.sampler.make_get_request(get_chain, key=key))
   seq = rq.sampled_sequence
   if bool(args.get('strip_ending_token', True)) and seq[-1] in ending_tokens:
