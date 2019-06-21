@@ -76,9 +76,10 @@ async def stats(request):
     if (v._locked):
       text += "%s => %d\n" % (k, len(v._waiters))
   try:
-    rq = statsrequest.StatsRequest(sampler.sampler)
+    rq = statsrequest.StatsRequest(sampler)
     await run_request_nl(rq)
-    text += 'elapsed: %.3f' % rq.elapsed
+    text += 'elapsed: %.3f\n' % rq.elapsed
+    text += 'Requests:\n%s\n' % rq.requestinfo
   except Exception:
     text += "Error getting stats"
   return web.Response(text=text)
