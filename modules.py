@@ -1,6 +1,9 @@
 import sampling
 import torch
 import math
+import logging
+
+logger = logging.getLogger(__file__)
 
 class DefaultStateStore:
   def __init__(self, model, default_token = 0):
@@ -99,13 +102,24 @@ class BlockBadWords:
   def __init__(self, model, badwords):
     self.model = model
     self.badwords = badwords
+    self.warn_on = 200
+    self.backtrack_limit = 10000
   def post(self, sample):
-    decoded = self.model.decode_string(sample.sampled_sequence).decode(errors='replace').lower()
     if not hasattr(sample, 'bw_fails'):
       sample.bw_fails = {}
+      sample.bw_btcnt = 0
+    if sample.bw_btcnt > self.backtrack_limit:
+      return
+    decoded = self.model.decode_string(sample.sampled_sequence).decode(errors='replace').lower()
     if any((decoded.endswith(w.lower()) for w in self.badwords)):
       fails = sample.bw_fails.get(decoded, 0) + 1
       todel = max(1, math.floor(fails/3))
       sample.bw_fails[decoded] = fails
 #      print('bad word detected, fails %d todel %d' % (fails, todel))
+      sample.bw_btcnt += 1
+      if sample.bw_btcnt > self.warn_on and not hasattr(sample, 'bw_warned'):
+        sample.bw_warned = True
+        logger.warning("Badword backtrack >%d for key %s" % (self.warn_on, sample.request.key))
+      if sample.bw_btcnt >= 10000:
+        logger.error("Backtrack limit %d reached for key %s" % (self.backtrack_limit, sample.request.key))
       sample.token_del(todel, True)
