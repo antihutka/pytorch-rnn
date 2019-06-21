@@ -1,9 +1,13 @@
 import sqlite3
 import pickle
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class SQLiteStateStore:
-  def __init__(self, model, db_path, default_token=0, commit_every = 1024):
+  def __init__(self, model, db_path, default_token=0, commit_every = 256):
     self.t = threading.local()
     self.db_path = db_path
     self.opendb()
@@ -37,5 +41,12 @@ class SQLiteStateStore:
     self.t.conn.execute("INSERT OR REPLACE INTO states (key, last_token, state) VALUES (?,?,?)", (request.key, request.last_token, pickle.dumps(request.final_state)))
     self.writes += 1
     if self.writes > self.commit_every:
-      self.t.conn.commit()
-      self.writes = 0
+      self.commit()
+
+  def commit(self):
+    if self.writes == 0:
+      return
+    logger.info("Commiting")
+    self.t.conn.commit()
+    self.writes = 0
+    logger.info("Commit done")
