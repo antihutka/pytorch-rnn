@@ -83,7 +83,7 @@ class LanguageModel(torch.nn.Module):
     return torch.LongTensor(tokens).unsqueeze(0)
 
   def decode_string(self, input_sequence):
-    return b''.join([self.idx_to_token[x] for x in input_sequence])
+    return b''.join([self.idx_to_token[int(x)] for x in input_sequence])
 
   def forward(self, x):
     for (idx, layer) in enumerate(self.layers):
