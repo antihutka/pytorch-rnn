@@ -9,9 +9,16 @@ import asyncio
 from asyncio import Event
 import json
 import statsrequest
+import logging
 
 config = ConfigParser()
 config.read(sys.argv[1])
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=config.get('loglevel', 'default'))
+logger = logging.getLogger(__name__)
+for (k,v) in config['loglevel'].items():
+  if k != 'default':
+    logging.getLogger(k).setLevel(v)
 
 model = LanguageModel.LanguageModel()
 model.load_json(config.get('model', 'checkpoint'))
@@ -81,6 +88,7 @@ async def put(request):
   args = await request.json()
   key = args.get('key', '')
   text = args['text']
+  logger.info("put %s %d" % (key,len(text)))
   await run_request(sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n'), key=key))
   resp = {'result': 'ok'}
   return web.Response(body=encode(resp), content_type='application/json')
@@ -92,6 +100,7 @@ async def get(request):
   temperature = float(get_option(args, 'temperature'))
   maxlength = int(get_option(args, 'maxlength'))
   bw = args.get('bad_words', [])
+  logger.info("get %s bw:%d" % (key, len(bw)))
   ending_tokens = [default_ending_token]
   if 'ending_tokens' in args:
     ending_tokens = [model.token_to_idx[tok.encode('utf8')] for tok in args['ending_tokens']]
