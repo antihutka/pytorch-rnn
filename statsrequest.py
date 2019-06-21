@@ -13,6 +13,8 @@ def decodeseq(model, seq):
 def req2str(model, reqs):
   out = ''
   for req in reqs:
+    if req.key is None:
+      continue
     out += '---- %s\n' % req.key
     for (k,v) in req.__dict__.items():
       if k == 'forced_input':
