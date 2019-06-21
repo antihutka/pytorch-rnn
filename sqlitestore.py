@@ -50,3 +50,6 @@ class SQLiteStateStore:
     self.t.conn.commit()
     self.writes = 0
     logger.info("Commit done")
+
+  def __str__(self):
+    return "SQLiteStateStore()"

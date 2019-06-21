@@ -74,11 +74,16 @@ class Sample:
     del self.states[-cnt:]
     del self.probs[-cnt:]
 
+def fl(l):
+  return "[" + ", ".join((str(i) for i in l)) + "]"
+
 class SamplerChains():
   def __init__(self, request_chain, sample_pre, sample_post):
     self.request_chain = request_chain
     self.sample_pre = sample_pre
     self.sample_post = sample_post
+  def __str__(self):
+    return "SamplerChains(%s, %s, %s)" % (fl(self.request_chain), fl(self.sample_pre), fl(self.sample_post))
 
 def default_put_chains(store):
   return SamplerChains(

@@ -38,18 +38,24 @@ class SimpleSampling:
     request.last_token = sample.sampled_sequence[-1]
     request.final_state = sample.states[-1]
     request.sampled_sequence = sample.sampled_sequence
+  def __str__(self):
+    return "SimpleSampling()"
 
 class PrepareInput:
   def pre(self, sample):
     assert (not sample.finished)
     sample.model_input_token = [sample.input_tokens[-1]]
     sample.model_input_state = [sample.states[-1]]
+  def __str__(self):
+    return "PrepareInput()"
 
 class ApplyTemperature:
   def __init__(self, temperature):
     self.temperature = temperature
   def post(self, sample):
     sample.model_output_scores.div_(self.temperature)
+  def __str__(self):
+    return "ApplyTemperature(%.2f)" % self.temperature
 
 class CalculateProbs:
   def post(self, sample):
@@ -57,6 +63,8 @@ class CalculateProbs:
     probs.exp_()
     probs.div_(probs.sum(1, True))
     sample.model_output_probs = probs
+  def __str__(self):
+    return "CalculateProbs()"
 
 class SampleToken:
   def post(self, sample):
@@ -65,6 +73,8 @@ class SampleToken:
     token = torch.multinomial(probs, 1).item()
     sample.token_add(token, probs, sample.model_next_states[0])
     #print(sample.model_next_states[0])
+  def __str__(self):
+    return "SampleToken()"
 
 class CheckEndingToken:
   def __init__(self, tokens):
@@ -72,6 +82,8 @@ class CheckEndingToken:
   def post(self, sample):
     if sample.sampled_sequence[-1] in self.tokens:
       sample.finished = True
+  def __str__(self):
+    return "CheckEndingToken(%s)" % str(self.tokens)
 
 class HardLengthLimit:
   def __init__(self, limit):
@@ -79,6 +91,8 @@ class HardLengthLimit:
   def post(self, sample):
     if self.limit and len(sample.sampled_sequence) >= self.limit:
       sample.finished = True
+  def __str__(self):
+    return "HardLengthLimit(%d)" % self.limit
 
 class GetForcedInput:
   def post(self, sample):
@@ -91,6 +105,8 @@ class GetForcedInput:
     sample.forced_pos = pos + 1
     if sample.forced_pos >= len(sample.request.forced_input):
       sample.finished = True
+  def __str__(self):
+    return "GetForcedInput()"
 
 class PrintSampledString:
   def __init__(self, model):
@@ -111,6 +127,9 @@ class BlockBadWords:
     if sample.bw_btcnt > self.backtrack_limit:
       return
     decoded = self.model.decode_string(sample.sampled_sequence).decode(errors='replace').lower()
+    bw = self.badwords
+    if hasattr(sample, 'badwords'):
+      bw = sample.badwords
     if any((decoded.endswith(w.lower()) for w in self.badwords)):
       fails = sample.bw_fails.get(decoded, 0) + 1
       todel = max(1, math.floor(fails/3))
@@ -123,3 +142,5 @@ class BlockBadWords:
       if sample.bw_btcnt >= 10000:
         logger.error("Backtrack limit %d reached for key %s" % (self.backtrack_limit, sample.request.key))
       sample.token_del(todel, True)
+  def __str__(self):
+    return "BlockBadWords(%s)" % str(self.badwords)
