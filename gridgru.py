@@ -27,8 +27,8 @@ class GRIDGRU(torch.nn.Module):
   def reset(self, std = None):
     if not std:
       std = 1.0 / math.sqrt(self.hidden_dim + self.input_dim)
-    self.bias:normal_(std = std)
-    self.weight:normal_(std = std)
+    self.bias.normal_(std = std)
+    self.weight.normal_(std = std)
     return self
 
   def get_weights(self):
