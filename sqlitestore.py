@@ -33,14 +33,22 @@ class SQLiteStateStore:
       request.initial_token = token
       request.initial_state = pickle.loads(state)
     else:
-      request.initial_token = self.default_token
-      request.initial_state = None
+      r = self.t.conn.execute("SELECT last_token, state FROM states WHERE key = '_default'").fetchall()
+      if r:
+        logger.info("loading default state for %s" % key)
+        [(token, state)] = r
+        request.initial_token = token
+        request.initial_state = pickle.loads(state)
+      else:
+        logger.info("loading empty state for %s" % key)
+        request.initial_token = self.default_token
+        request.initial_state = None
 
   def backward(self, request):
     self.opendb()
     self.t.conn.execute("INSERT OR REPLACE INTO states (key, last_token, state) VALUES (?,?,?)", (request.key, request.last_token, pickle.dumps(request.final_state)))
     self.writes += 1
-    if self.writes > self.commit_every:
+    if self.writes > self.commit_every or getattr(request, 'force_commit', False):
       self.commit()
 
   def commit(self):

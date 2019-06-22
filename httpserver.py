@@ -86,18 +86,17 @@ async def stats(request):
     text += "Error getting stats"
   return web.Response(text=text)
 
-@routes.post('/commit')
-async def commit(request):
-  stor.commit()
-  return web.Response(body=encode({'result':'ok'}), content_type='application/json')
-
 @routes.post('/put')
 async def put(request):
   args = await request.json()
   key = args.get('key', '')
   text = args['text']
+  force_commit = args.get('force_commit', False)
   logger.info("put %s %d" % (key,len(text)))
-  await run_request(sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n'), key=key))
+  rq = sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n'), key=key)
+  if force_commit:
+    rq.force_commit = True
+  await run_request(rq)
   resp = {'result': 'ok'}
   return web.Response(body=encode(resp), content_type='application/json')
 
