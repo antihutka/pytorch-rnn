@@ -1,0 +1,20 @@
+[http]
+port = 7880
+
+[model]
+checkpoint = your-model.json
+
+[defaults]
+temperature = 0.8
+maxlength = 1024
+
+[store]
+type = sqlite
+dbpath = teststore.db
+
+[loglevel]
+aiohttp.access = WARNING
+default = INFO
+
+[logging]
+#filename = httpserver.log
