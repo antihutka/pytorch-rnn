@@ -14,7 +14,9 @@ import logging
 config = ConfigParser()
 config.read(sys.argv[1])
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=config.get('loglevel', 'default'))
+logfile = config.get('logging', 'filename', fallback=None)
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=config.get('loglevel', 'default'), filename=logfile)
 logger = logging.getLogger(__name__)
 for (k,v) in config['loglevel'].items():
   if k != 'default':
