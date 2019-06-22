@@ -86,6 +86,11 @@ async def stats(request):
     text += "Error getting stats"
   return web.Response(text=text)
 
+@routes.post('/commit')
+async def commit(request):
+  stor.commit()
+  return web.Response(body=encode({'result':'ok'}), content_type='application/json')
+
 @routes.post('/put')
 async def put(request):
   args = await request.json()
@@ -104,10 +109,14 @@ async def get(request):
   maxlength = int(get_option(args, 'maxlength'))
   bw = args.get('bad_words', [])
   logger.info("get %s bw:%d" % (key, len(bw)))
+  softlength_max = int(get_option(args, 'softlength_max'))
+  softlength_mult = float(get_option(args, 'softlength_mult'))
   ending_tokens = [default_ending_token]
   if 'ending_tokens' in args:
     ending_tokens = [model.token_to_idx[tok.encode('utf8')] for tok in args['ending_tokens']]
   get_chain = sampling.default_get_chains(stor, maxlength=maxlength, temperature = temperature, endtoken = ending_tokens)
+  if softlength_max > 0:
+    get_chain.sample_post.insert(0, M.SoftLengthLimit(softlength_max, softlength_mult, ending_tokens))
   if bw:
     get_chain.sample_post.append(M.BlockBadWords(model, bw))
   rq = await run_request(sampler.sampler.make_get_request(get_chain, key=key))

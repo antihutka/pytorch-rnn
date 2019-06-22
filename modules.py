@@ -85,6 +85,21 @@ class CheckEndingToken:
   def __str__(self):
     return "CheckEndingToken(%s)" % str(self.tokens)
 
+class SoftLengthLimit:
+  def __init__(self, limit, mult, tokens):
+    self.limit = limit
+    self.mult = mult
+    self.tokens = tokens
+  def post(self, sample):
+    l = len(sample.sampled_sequence)
+    if (l > self.limit):
+      amt = self.mult * (l - self.limit)
+      for t in self.tokens:
+        print("Want to add %f to token %d with tensor size %s" % (amt, t, str(sample.model_output_probs.size())))
+        sample.model_output_probs[:, t].add(amt)
+  def __str__(self):
+    return "SoftLengthLimit(%d, %f, %s)" % (self.limit, self.mult, str(self.tokens))
+
 class HardLengthLimit:
   def __init__(self, limit):
     self.limit = limit
