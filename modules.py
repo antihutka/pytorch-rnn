@@ -72,7 +72,6 @@ class SampleToken:
     probs = sample.model_output_probs
     token = torch.multinomial(probs, 1).item()
     sample.token_add(token, probs, sample.model_next_states[0])
-    #print(sample.model_next_states[0])
   def __str__(self):
     return "SampleToken()"
 
@@ -95,8 +94,7 @@ class SoftLengthLimit:
     if (l > self.limit):
       amt = self.mult * (l - self.limit)
       for t in self.tokens:
-        print("Want to add %f to token %d with tensor size %s" % (amt, t, str(sample.model_output_probs.size())))
-        sample.model_output_probs[:, t].add(amt)
+        sample.model_output_scores[:, :, t].add_(amt)
   def __str__(self):
     return "SoftLengthLimit(%d, %f, %s)" % (self.limit, self.mult, str(self.tokens))
 
