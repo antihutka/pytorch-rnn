@@ -43,9 +43,7 @@ class LanguageModel(torch.nn.Module):
     self.stateful_layers = set()
     self.layer_states = {}
 
-  def load_json(self, filename):
-    with open(filename, "r") as f:
-      j = json.load(f)
+  def parse_tokendata(self, j):
     for idx, token in enumerate(j['idx_to_token']):
       token_e = token.encode()
       # assume we used bytes encoding
@@ -53,8 +51,16 @@ class LanguageModel(torch.nn.Module):
         token_e = bytes([int(token[1:-1])])
       self.idx_to_token[idx] = token_e
       self.token_to_idx[token_e] = idx
-    #print(self.idx_to_token)
-    #print(self.token_to_idx)
+
+  def load_tokendata(self, filename):
+    with open(filename, "r") as f:
+      j = json.load(f)
+    self.parse_tokendata(j)
+
+  def load_json(self, filename):
+    with open(filename, "r") as f:
+      j = json.load(f)
+    self.parse_tokendata(j)
     # let's only support one data file for checkpoint
     datafile = find_data_file(filename)
     filesize = os.path.getsize(datafile) // 4
