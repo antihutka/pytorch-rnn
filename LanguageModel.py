@@ -55,6 +55,11 @@ class LanguageModel(torch.nn.Module):
   def load_tokendata(self, filename):
     with open(filename, "r") as f:
       j = json.load(f)
+    if isinstance(j['idx_to_token'], dict):
+      itt = j['idx_to_token']
+      itt = {int(k)-1:v for (k,v) in itt.items()}
+      itt = [itt[n] for n in range(0, len(itt))]
+      j['idx_to_token'] = itt
     self.parse_tokendata(j)
 
   def load_json(self, filename):
