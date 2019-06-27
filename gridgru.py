@@ -64,8 +64,8 @@ class GRIDGRU(torch.nn.Module):
       prev_ht = state
     x_nt = x.view(N * T, -1)
     bias_nt = self.bias.expand(N * T, -1)
-    gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
-    gates = gates_nt.view(N, T, -1)
+    #gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
+    #gates = gates_nt.view(N, T, -1)
     gatesd_nt = bias_nt[:, 3*H:3*H+2*D].clone()
     hcd_b = bias_nt[:, 3*H+2*D:].clone()
     hcd = hcd_b.view(N, T, -1)
@@ -74,13 +74,16 @@ class GRIDGRU(torch.nn.Module):
     #ht = x.new_zeros(N, T, H)
     for t in range(0, T):
       #next_ht = ht[:, t]
-      cur_gates = gates[:, t]
-      cur_gates_g = cur_gates[:, :2 * H]
+      
+      #cur_gates = gates[:, t]
+      #cur_gates_g = cur_gates[:, :2 * H]
+      cur_gates_g = torch.addmm(self.bias[:2*H].expand(N, -1), x[:, t], Wxt[:, :2*H])
+      hc = torch.addmm(self.bias[2*H:3*H].expand(N, -1), x[:, t], Wxt[:, 2*H:3*H])
       cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
-      u = cur_gates[:, :H]
-      r = cur_gates[:, H:2*H]
+      u = cur_gates_g[:, :H]
+      r = cur_gates_g[:, H:2*H]
       bfr1 = torch.mul(r, prev_ht)
-      hc = cur_gates[:, 2*H:3*H]
+      #hc = cur_gates[:, 2*H:3*H]
       hc.addmm_(bfr1, Whtc)
       hc.tanh_()
       # make sure we're handling direct/inveretd dropout correctly
