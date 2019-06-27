@@ -4,6 +4,14 @@ from torch.nn.parameter import Parameter
 import torch.nn.functional as F
 import torch.nn.init as init
 
+def get_weights(D, H, W):
+  Wxt  = W[:D, :3*H]
+  Wxd  = W[:D, 3*H:]
+  Whd  = W[D:, 3*H:]
+  Whtg = W[D:, :2*H]
+  Whtc = W[D:, 2*H:3*H]
+  return Wxt, Wxd, Whd, Whtg, Whtc
+
 class GRIDGRU(torch.nn.Module):
   def __init__(self, input_dim, hidden_dim, zoneout = 0, zoneoutd = 0, weight = None, bias = None):
     super(GRIDGRU, self).__init__()
@@ -32,96 +40,65 @@ class GRIDGRU(torch.nn.Module):
     init.normal_(self.weight, std = std)
     return self
 
-  def get_weights(self):
-    D = self.input_dim
-    H = self.hidden_dim
-    W = self.weight
-    Wxt  = W[:D, :3*H]
-    Wxd  = W[:D, 3*H:]
-    Whd  = W[D:, 3*H:]
-    Whtg = W[D:, :2*H]
-    Whtc = W[D:, 2*H:3*H]
-    return Wxt, Wxd, Whd, Whtg, Whtc
-
   def new_state(self, x):
     N = x.size(0)
     H = self.hidden_dim
     return x.new_zeros(N,H)
 
   def forward(self, x, state = None):
-    Wxt, Wxd, Whd, Whtg, Whtc = self.get_weights()
     N = x.size(0)
-    T = x.size(1)
     H = self.hidden_dim
     D = self.input_dim
-    assert x.size(2) == D
-    prev_ht = None
     if state is None:
       prev_ht = self.new_state(x)
     else:
       assert state.dim() == 2
       assert state.size(0) == N and state.size(1) == H
       prev_ht = state
+    return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training)
+
+class GRIDGRUFunction(torch.autograd.Function):
+  @staticmethod
+  def forward(ctx, x, prev_ht, weight, bias, H, D, zoneout, zoneoutd, training):
+    N = x.size(0)
+    T = x.size(1)
+    Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
+    assert x.size(2) == D
     x_nt = x.view(N * T, -1)
-    bias_nt = self.bias.expand(N * T, -1)
-    #gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
-    #gates = gates_nt.view(N, T, -1)
-    gatesd_nt = bias_nt[:, 3*H:3*H+2*D].clone()
-    hcd_b = bias_nt[:, 3*H+2*D:].clone()
-    hcd = hcd_b.view(N, T, -1)
-    gatesd_nt.addmm_(x_nt, Wxd[:, :2*D])
-    gatesd = gatesd_nt.view(N, T, -1)
-    #ht = x.new_zeros(N, T, H)
-    xsplit = x.split(1, 1)
-    bias_u_expanded = self.bias[:H].expand(N, -1)
-    bias_r_expanded = self.bias[H:2*H].expand(N, -1)
-    #bias_g_expanded = self.bias[:2*H].expand(N, -1)
-    bias_hc_expanded = self.bias[2*H:3*H].expand(N, -1)
-    Whd_g = Whd[:, :2*D]
-    Whd_hc = Whd[:, 2*D:]
-    #Wxt_g = Wxt[:, :2*H]
-    Wxt_u = Wxt[:, :H]
-    Wxt_r = Wxt[:, H:2*H]
-    Wxt_hc = Wxt[:, 2*H:3*H]
-    Whtu = Whtg[:, :H]
-    Whtr = Whtg[:, H:]
+    bias_nt = bias.expand(N * T, -1)
+    gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
+    gates = gates_nt.view(N, T, -1)
+    gatesd_nt = bias_nt[:, 3*H:].clone()
+    gatesd_nt[:, :2*D].addmm_(x_nt, Wxd[:, :2*D])
+    #gatesd = gatesd_nt.view(N, T, -1)
+    ht = x.new_zeros(N, T, H)
     for t in range(0, T):
-      #next_ht = ht[:, t]
-      
-      #cur_gates = gates[:, t]
-      #cur_gates_g = cur_gates[:, :2 * H]
-      xt = xsplit[t].view(N, D)
-      #cur_gates_g = torch.addmm(bias_g_expanded, xt, Wxt_g)
-      hc = torch.addmm(bias_hc_expanded, xt, Wxt_hc)
-      #cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
-      u = torch.addmm(bias_u_expanded, xt, Wxt_u)
-      r = torch.addmm(bias_r_expanded, xt, Wxt_r)
-      u.addmm_(prev_ht, Whtu).sigmoid_()
-      r.addmm_(prev_ht, Whtr).sigmoid_()
+      next_ht = ht[:, t]
+      cur_gates = gates[:, t]
+      cur_gates_g = cur_gates[:, :2 * H]
+      cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
+      u = cur_gates[:, :H]
+      r = cur_gates[:, H:2*H]
       bfr1 = torch.mul(r, prev_ht)
-      #hc = cur_gates[:, 2*H:3*H]
+      hc = cur_gates[:, 2*H:3*H]
       hc.addmm_(bfr1, Whtc)
       hc.tanh_()
       # make sure we're handling direct/inveretd dropout correctly
-      if self.zoneout > 0:
-        if self.training:
-          F.dropout(u, p=self.zoneout, training=True, inplace=True)
-        u.mul_(1-self.zoneout)
-      #next_ht.copy_(prev_ht)
-      next_ht = prev_ht.clone()
-      next_ht.addcmul_(-1, u, prev_ht).addcmul_(u, hc)
-      gatesd[:, t].addmm_(next_ht, Whd_g)
-      hcd[:, t].addmm_(next_ht, Whd_hc)
+      if zoneout > 0:
+        if training:
+          F.dropout(u, p=zoneout, training=True, inplace=True)
+        u.mul_(1-zoneout)
+      next_ht.copy_(prev_ht).addcmul_(-1, u, prev_ht).addcmul_(u, hc)
       prev_ht = next_ht
-    #gatesd_nt.addmm_(ht.view(N*T, -1), Whd[:, :2*D])
-    #hcd_b.addmm_(ht.view(N*T, -1), Whd[:, 2*D:])
-    gatesd_nt.sigmoid_()
+    gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
+    gatesd_nt[:, :2*D].sigmoid_()
     ud_b = gatesd_nt[:, :D]
     rd_b = gatesd_nt[:, D:2*D]
-    if self.zoneoutd > 0:
-      if self.training:
-        F.dropout(ud_b, p=self.zoneoutd, training=self.training, inplace=True)
-      ud_b.mul_(1-self.zoneoutd)
+    hcd_b = gatesd_nt[:, 2*D:3*D]
+    if zoneoutd > 0:
+      if training:
+        F.dropout(ud_b, p=zoneoutd, training=training, inplace=True)
+      ud_b.mul_(1-zoneoutd)
     bfr2 = torch.mul(rd_b.view(N, T, -1), x).view(N*T, -1)
     hcd_b.addmm_(bfr2, Wxd[:, 2*D:3*D])
 
@@ -129,6 +106,7 @@ class GRIDGRU(torch.nn.Module):
     h=torch.addcmul(x, -1, ud_b.view(N, T, -1), x)
     h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
     return (h, next_ht)
-
-
+  @staticmethod
+  def backward(ctx, grad_output):
+    pass
 
