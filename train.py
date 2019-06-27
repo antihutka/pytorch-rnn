@@ -4,6 +4,8 @@ from dataloader import DataLoader
 from LanguageModel import LanguageModel
 import torch.optim as optim
 import torch.nn as nn
+import torch
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_h5', default='data/tiny-shakespeare.h5')
@@ -50,6 +52,7 @@ loader = DataLoader(
 for epoch in range(0, 1):
   traindata = loader.make_batches('train', 0)
   for iter_data in traindata.data:
+    tstart = time.clock()
     N = iter_data.inputs.size(0)
     T = iter_data.inputs.size(1)
     optimizer.zero_grad()
@@ -58,4 +61,5 @@ for epoch in range(0, 1):
     loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
     loss.backward()
     optimizer.step()
-    print('iteration %d/%d loss %.2f' % (iter_data.i, traindata.batch_count, loss))
+    tend = time.clock()
+    print('iteration %d/%d loss %.2f time %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart))
