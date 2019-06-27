@@ -120,7 +120,7 @@ class LanguageModel(torch.nn.Module):
 #      print("running layer %s" % layer)
       if layer in self.stateful_layers:
         x, new_state = layer.forward(x, self.layer_states.get(idx))
-        self.layer_states[idx] = new_state
+        self.layer_states[idx] = new_state.detach()
       else:
         x = layer.forward(x)
     return x
