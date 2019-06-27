@@ -57,9 +57,14 @@ for epoch in range(0, 1):
     T = iter_data.inputs.size(1)
     optimizer.zero_grad()
     # handle pre-input
+    tfwd_start = time.clock()
     outputs = model(iter_data.inputs.long())
     loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
+    tfwd_end = time.clock()
     loss.backward()
+    tbck_end = time.clock()
     optimizer.step()
     tend = time.clock()
-    print('iteration %d/%d loss %.2f time %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart))
+    print('iteration %d/%d loss %.2f time %.2f fwd %.2f bck %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart, tfwd_end - tfwd_start, tbck_end - tfwd_end))
+    if iter_data.i > 10:
+      break
