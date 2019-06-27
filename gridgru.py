@@ -134,7 +134,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     gatesd = gatesd_nt.view(N, T, -1)
 
     grad_x = grad_first_ht = grad_weight = grad_bias = None
-    grad_x = grad_output.new_zeros(N, T, D)
+    grad_x = grad_output.new_zeros(T, N, D)
     grad_weight = weight.new_zeros(weight.size())
     grad_h0_tb = ht.new(TB, N, H)
     grad_a_tb = ht.new(TB, N, 3*H)
@@ -257,7 +257,7 @@ class GRIDGRUFunction(torch.autograd.Function):
           torch.mul(ctx.first_ht, r_t[:, 0], out=temp_buffer_t[0])
         grad_Whtc.addbmm_(temp_buffer_t.transpose(1,2), grad_a_tb[:TBl, :, 2*H:3*H])
         
-    return (grad_x, grad_first_ht, grad_weight, grad_bias, None, None, None, None, None)
+    return (grad_x.transpose(0,1), grad_first_ht, grad_weight, grad_bias, None, None, None, None, None)
 
 
 

@@ -19,6 +19,7 @@ parser.add_argument('--hidden_dim', default=128, type=int)
 parser.add_argument('--zoneout', default=0, type=float)
 parser.add_argument('--dropout', default=0, type=float)
 
+parser.add_argument('--learning-rate', default=0.002, type=float)
 parser.add_argument('--checkpoint', default='models/output')
 args = parser.parse_args()
 
@@ -38,7 +39,7 @@ model.build_model(
   )
 print(model.layers)
 logger.info('Created model with %d parameters' % sum((p.numel() for p in model.parameters())))
-optimizer = optim.Adam(model.parameters())
+optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 crit = nn.CrossEntropyLoss()
 
 logger.info('Loading data')
@@ -71,7 +72,7 @@ for epoch in range(0, 1):
     print('iteration %d/%d loss %.2f time %.2f fwd %.2f bck %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart, tfwd_end - tfwd_start, tbck_end - tfwd_end))
     totalfwd += tfwd_end-tfwd_start
     totalbck += tbck_end-tfwd_end
-    if iter_data.i > 10:
-      break
+#    if iter_data.i > 10:
+#      break
 
 print("total fwd/bck: %.2f/%.2f" % (totalfwd, totalbck))
