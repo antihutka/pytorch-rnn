@@ -118,12 +118,12 @@ class GRIDGRUFunction(torch.autograd.Function):
     h=torch.addcmul(x, -1, ud_b.view(N, T, -1), x)
     h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
     ctx.H = H
-    ctx.save_for_backward(weight, bias, ht, gatesd_nt, x)
+    ctx.save_for_backward(weight, bias, ht, gatesd_nt, x, gates)
     return (h, next_ht)
 
   @staticmethod
   def backward(ctx, grad_output, grad_lastht):
-    (weight, bias, ht, gatesd_nt, x) = ctx.saved_tensors
+    (weight, bias, ht, gatesd_nt, x, gates) = ctx.saved_tensors
     TB = 8
     N = grad_output.size(0)
     T = grad_output.size(1)
@@ -144,6 +144,10 @@ class GRIDGRUFunction(torch.autograd.Function):
     grad_bias = bias.new_zeros(bias.size())
     grad_bt = grad_bias[:3*H]
     grad_bd = grad_bias[3*H:]
+    grad_next_h = ht.new_zeros(ctx.first_ht.size())
+    temp_buffer_tb = ht.new_zeros(TB, N, H)
+    temp_buffer = temp_buffer_tb[0]
+    grad_next_hd_tb = ht.new_zeros(TB, N, D)
 
     grad_Wxt, grad_Wxd, grad_Whd, grad_Whtg, grad_Whtc = get_weights(D, H, grad_weight)
 
@@ -199,6 +203,60 @@ class GRIDGRUFunction(torch.autograd.Function):
         grad_Wxd[:, 2*D:3*D].addbmm_(temp_bufferd_t.transpose(0,1).transpose(1,2), grad_ad_tb[:TBl, :, 2*D:3*D])
         torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=temp_bufferd_tn)
         temp_bufferd_t.mul_(rd_t)
+      
+      u = gates[:, t, :H]
+      r = gates[:, t, H:2*H]
+      hc = gates[:, t, 2*H:3*H]
+      
+      grad_next_h.add_(grad_h0)
+      torch.mul(grad_next_h, u, out=grad_au)
+      grad_hc = grad_au
+      tanh_gradient(grad_ahc, hc, grad_hc)
+      torch.mm(grad_ahc, Whtc.t(), out=grad_au)
+      grad_au.mul_(prev_h)
+      grad_r = grad_au
+      sigmoid_gradient(grad_ar, r, grad_r)
+      torch.add(hc, -1, prev_h, out=temp_buffer)
+      sigmoid_gradient(grad_au, u, grad_next_h)
+      grad_au.mul_(temp_buffer)
+      
+      grad_next_h.addcmul_(-1, u, grad_next_h)
+      grad_next_h.addmm_(grad_a[:, :2*H], Whtg.t())
+      torch.mm(grad_a[:, 2*H:3*H], Whtc.t(), out=temp_buffer)
+      temp_buffer.mul_(r)
+      grad_next_h.add(temp_buffer)
+      
+      if TBi == 0:
+        tlast = t + TB
+        if tlast > T:
+          tlast = T
+        TBl = tlast - t
+        
+        grad_h_tb = grad_output[:, t:tlast]
+        grad_next_hd_t = grad_next_hd_tb[:TBl]
+        grad_a_t = grad_a_tb[:TBl]
+        grad_a_tn = grad_a_t.view(TBl*N, 3*H)
+        temp_buffer_t = temp_buffer_tb[:TBl]
+        r_t = gates[:, t:tlast, H:2*H]
+        
+        torch.addcmul(grad_h_tb, -1, gatesd[:, t:tlast, :D], grad_h_tb, out=grad_next_hd_t.transpose(0,1))
+        grad_next_hd_t.view(TBl*N, D).addmm_(grad_ad_tb[:TBl].view(TBl*N, 3*D)[:, :2*D], Wxd[:, :2*D].t())
+        grad_next_hd_t.add_(temp_bufferd_tb[:TBl])
+        o = grad_x[t:tlast].view(TBl*N, D)
+        torch.addmm(grad_next_hd_t.view(TBl*N, D), grad_a_tn, Wxt.t(), out=o) #nan started
+        grad_Wxt.addbmm_(x[:, t:tlast].transpose(0,1).transpose(1,2), grad_a_t)
+        grad_a_sum = torch.sum(grad_a_tn, 0)
+        grad_bt.add_(grad_a_sum)
+        if t > 0:
+          grad_Whtg.addbmm_(ht[:, t-1:tlast-1].transpose(0,1).transpose(1,2), grad_a_t[:, :, :2*H])
+          torch.mul(ht[:, t-1:tlast-1], r_t, out=temp_buffer_t.transpose(1,2))
+        else:
+          grad_Whtg.addbmm_(ht[:, t:tlast-1].transpose(0,1).transpose(1,2), grad_a_t[1:TBl, :, :2*H])
+          grad_Whtg.addmm_(ctx.first_ht.t(), grad_a[:, :2*H])
+          torch.mul(ht[:, t:tlast-1], r_t[:, 1:TBl], out=temp_buffer_t[1:TBl].transpose(0,1))
+          torch.mul(ctx.first_ht, r_t[:, 0], out=temp_buffer_t[0])
+        grad_Whtc.addbmm_(temp_buffer_t.transpose(1,2), grad_a_tb[:TBl, :, 2*H:3*H])
+        
     return (grad_x, grad_first_ht, grad_weight, grad_bias, None, None, None, None, None)
 
 
