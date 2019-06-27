@@ -73,17 +73,31 @@ class GRIDGRU(torch.nn.Module):
     gatesd = gatesd_nt.view(N, T, -1)
     #ht = x.new_zeros(N, T, H)
     xsplit = x.split(1, 1)
+    bias_u_expanded = self.bias[:H].expand(N, -1)
+    bias_r_expanded = self.bias[H:2*H].expand(N, -1)
+    #bias_g_expanded = self.bias[:2*H].expand(N, -1)
+    bias_hc_expanded = self.bias[2*H:3*H].expand(N, -1)
+    Whd_g = Whd[:, :2*D]
+    Whd_hc = Whd[:, 2*D:]
+    #Wxt_g = Wxt[:, :2*H]
+    Wxt_u = Wxt[:, :H]
+    Wxt_r = Wxt[:, H:2*H]
+    Wxt_hc = Wxt[:, 2*H:3*H]
+    Whtu = Whtg[:, :H]
+    Whtr = Whtg[:, H:]
     for t in range(0, T):
       #next_ht = ht[:, t]
       
       #cur_gates = gates[:, t]
       #cur_gates_g = cur_gates[:, :2 * H]
       xt = xsplit[t].view(N, D)
-      cur_gates_g = torch.addmm(self.bias[:2*H].expand(N, -1), xt, Wxt[:, :2*H])
-      hc = torch.addmm(self.bias[2*H:3*H].expand(N, -1), xt, Wxt[:, 2*H:3*H])
-      cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
-      u = cur_gates_g[:, :H]
-      r = cur_gates_g[:, H:2*H]
+      #cur_gates_g = torch.addmm(bias_g_expanded, xt, Wxt_g)
+      hc = torch.addmm(bias_hc_expanded, xt, Wxt_hc)
+      #cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
+      u = torch.addmm(bias_u_expanded, xt, Wxt_u)
+      r = torch.addmm(bias_r_expanded, xt, Wxt_r)
+      u.addmm_(prev_ht, Whtu).sigmoid_()
+      r.addmm_(prev_ht, Whtr).sigmoid_()
       bfr1 = torch.mul(r, prev_ht)
       #hc = cur_gates[:, 2*H:3*H]
       hc.addmm_(bfr1, Whtc)
@@ -96,8 +110,8 @@ class GRIDGRU(torch.nn.Module):
       #next_ht.copy_(prev_ht)
       next_ht = prev_ht.clone()
       next_ht.addcmul_(-1, u, prev_ht).addcmul_(u, hc)
-      gatesd[:, t].addmm_(next_ht, Whd[:, :2*D])
-      hcd[:, t].addmm_(next_ht, Whd[:, 2*D:])
+      gatesd[:, t].addmm_(next_ht, Whd_g)
+      hcd[:, t].addmm_(next_ht, Whd_hc)
       prev_ht = next_ht
     #gatesd_nt.addmm_(ht.view(N*T, -1), Whd[:, :2*D])
     #hcd_b.addmm_(ht.view(N*T, -1), Whd[:, 2*D:])
