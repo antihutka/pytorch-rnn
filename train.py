@@ -49,6 +49,9 @@ loader = DataLoader(
   seq_length = args.seq_length
   )
 
+totalfwd = 0
+totalbck = 0
+
 for epoch in range(0, 1):
   traindata = loader.make_batches('train', 0)
   for iter_data in traindata.data:
@@ -66,5 +69,9 @@ for epoch in range(0, 1):
     optimizer.step()
     tend = time.clock()
     print('iteration %d/%d loss %.2f time %.2f fwd %.2f bck %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart, tfwd_end - tfwd_start, tbck_end - tfwd_end))
+    totalfwd += tfwd_end-tfwd_start
+    totalbck += tbck_end-tfwd_end
     if iter_data.i > 10:
       break
+
+print("total fwd/bck: %.2f/%.2f" % (totalfwd, totalbck))
