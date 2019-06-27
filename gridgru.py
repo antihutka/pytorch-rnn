@@ -66,8 +66,9 @@ class GRIDGRU(torch.nn.Module):
     bias_nt = self.bias.expand(N * T, -1)
     gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
     gates = gates_nt.view(N, T, -1)
-    gatesd_nt = bias_nt[:, 3*H:].clone()
-    gatesd_nt[:, :2*D].addmm_(x_nt, Wxd[:, :2*D])
+    gatesd_nt = bias_nt[:, 3*H:3*H+2*D].clone()
+    hcd_b = bias_nt[:, 3*H+2*D:].clone()
+    gatesd_nt.addmm_(x_nt, Wxd[:, :2*D])
     #gatesd = gatesd_nt.view(N, T, -1)
     ht = x.new_zeros(N, T, H)
     for t in range(0, T):
@@ -88,11 +89,11 @@ class GRIDGRU(torch.nn.Module):
         u.mul_(1-self.zoneout)
       next_ht.copy_(prev_ht).addcmul_(-1, u, prev_ht).addcmul_(u, hc)
       prev_ht = next_ht
-    gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
-    gatesd_nt[:, :2*D].sigmoid_()
+    gatesd_nt.addmm_(ht.view(N*T, -1), Whd[:, :2*D])
+    hcd_b.addmm_(ht.view(N*T, -1), Whd[:, 2*D:])
+    gatesd_nt.sigmoid_()
     ud_b = gatesd_nt[:, :D]
     rd_b = gatesd_nt[:, D:2*D]
-    hcd_b = gatesd_nt[:, 2*D:3*D]
     if self.zoneoutd > 0:
       if self.training:
         F.dropout(ud_b, p=self.zoneoutd, training=self.training, inplace=True)
