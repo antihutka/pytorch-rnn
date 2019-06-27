@@ -46,7 +46,7 @@ class GRIDGRU(torch.nn.Module):
   def new_state(self, x):
     N = x.size(0)
     H = self.hidden_dim
-    return x.new(N,H).zero_()
+    return x.new_zeros(N,H)
 
   def forward(self, x, state = None):
     Wxt, Wxd, Whd, Whtg, Whtc = self.get_weights()
@@ -66,10 +66,10 @@ class GRIDGRU(torch.nn.Module):
     bias_nt = self.bias.expand(N * T, -1)
     gates_nt = torch.addmm(bias_nt[:,:3*H], x_nt, Wxt)
     gates = gates_nt.view(N, T, -1)
-    gatesd_nt = x.new(N * T, 3 * D).copy_(bias_nt[:, 3*H:])
+    gatesd_nt = bias_nt[:, 3*H:].clone()
     gatesd_nt[:, :2*D].addmm_(x_nt, Wxd[:, :2*D])
     #gatesd = gatesd_nt.view(N, T, -1)
-    ht = x.new(N, T, H).zero_()
+    ht = x.new_zeros(N, T, H)
     for t in range(0, T):
       next_ht = ht[:, t]
       cur_gates = gates[:, t]
