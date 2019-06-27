@@ -57,9 +57,21 @@ class GRIDGRU(torch.nn.Module):
       prev_ht = state
     return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training)
 
+def tanh_gradient(igrad, out, ograd):
+  igrad.fill_(1)
+  igrad.addcmul_(-1, out, out)
+  igrad.mul_(ograd)
+
+def sigmoid_gradient(igrad, out, ograd):
+  igrad.fill_(1)
+  igrad.add_(-1, out)
+  igrad.mul_(out)
+  igrad.mul_(ograd)
+
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod
   def forward(ctx, x, prev_ht, weight, bias, H, D, zoneout, zoneoutd, training):
+    ctx.first_ht = prev_ht
     N = x.size(0)
     T = x.size(1)
     Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
@@ -105,8 +117,93 @@ class GRIDGRUFunction(torch.autograd.Function):
     hcd_b.tanh_()
     h=torch.addcmul(x, -1, ud_b.view(N, T, -1), x)
     h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
+    ctx.H = H
+    ctx.save_for_backward(weight, bias, ht, gatesd_nt, x)
     return (h, next_ht)
+
   @staticmethod
-  def backward(ctx, grad_output):
-    pass
+  def backward(ctx, grad_output, grad_lastht):
+    (weight, bias, ht, gatesd_nt, x) = ctx.saved_tensors
+    TB = 8
+    N = grad_output.size(0)
+    T = grad_output.size(1)
+    D = grad_output.size(2)
+    H = ctx.H
+
+    Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
+    gatesd = gatesd_nt.view(N, T, -1)
+
+    grad_x = grad_first_ht = grad_weight = grad_bias = None
+    grad_x = grad_output.new_zeros(N, T, D)
+    grad_weight = weight.new_zeros(weight.size())
+    grad_h0_tb = ht.new(TB, N, H)
+    grad_a_tb = ht.new(TB, N, 3*H)
+    grad_ad_tb = ht.new(TB, N, 3*D)
+    temp_bufferd_tb = ht.new(TB, N, D)
+    #grad_a_sumd = ht.new(1, 3*D)
+    grad_bias = bias.new_zeros(bias.size())
+    grad_bt = grad_bias[:3*H]
+    grad_bd = grad_bias[3*H:]
+
+    grad_Wxt, grad_Wxd, grad_Whd, grad_Whtg, grad_Whtc = get_weights(D, H, grad_weight)
+
+    for t in range(T-1, -1, -1):
+      if t == 0:
+        prev_h = ctx.first_ht
+      else:
+        prev_h = ht[:, t-1]
+      TBi = t % TB
+      grad_h0 = grad_h0_tb[TBi]
+      grad_a = grad_a_tb[TBi]
+      grad_au = grad_a[:, :H]
+      grad_ar = grad_a[:, H:2*H]
+      grad_ahc = grad_a[:, 2*H:3*H]
+
+      if TBi == (TB - 1) or t == (T - 1):
+        TBl = TBi + 1
+        tfirst = t - TBi
+        
+        grad_ad_t = grad_ad_tb[:TBl].transpose(0,1)
+        grad_aud_t = grad_ad_t[:, :, :D]
+        grad_ard_t = grad_ad_t[:, :, D:2*D]
+        grad_ahcd_t = grad_ad_t[:, :, 2*D:3*D]
+        
+        grad_ad_tn = grad_ad_tb[:TBl].view(TBl*N, 3*D)
+        grad_aud_tn = grad_ad_tn[:, :D]
+        grad_ahcd_tn = grad_ad_tn[:, 2*D:3*D]
+        grad_h0_tn = grad_h0_tb[:TBl].view(TBl*N, H)
+        
+        temp_bufferd_t = temp_bufferd_tb[:TBl].transpose(0,1)
+        temp_bufferd_tn = temp_bufferd_tb[:TBl].view(TBl * N, D)
+        
+        ud_t = gatesd[:, tfirst:t+1, :D]
+        rd_t = gatesd[:, tfirst:t+1, D:2*D]
+        hcd_t = gatesd[:, tfirst:t+1, 2*D:3*D]
+        x_t = x[:, tfirst:t+1]
+        grad_h_t = grad_output[:, tfirst:t+1]
+        
+        torch.mul(grad_h_t, ud_t, out=grad_aud_t)
+        tanh_gradient(grad_ahcd_t, hcd_t, grad_aud_t)
+        torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=grad_aud_tn)
+        grad_aud_t.mul_(x_t)
+        sigmoid_gradient(grad_ard_t, rd_t, grad_aud_t)
+        torch.add(hcd_t, -1, x_t, out=temp_bufferd_t)
+        sigmoid_gradient(grad_aud_t, ud_t, grad_h_t)
+        grad_aud_t.mul_(temp_bufferd_t)
+        torch.mm(grad_ad_tn, Whd.t(), out=grad_h0_tn)
+        grad_Whd.addbmm_(ht[:, tfirst:t+1].transpose(0,1).transpose(1,2), grad_ad_tb[:TBl])
+        grad_Wxd[:, :2*D].addbmm_(x_t.transpose(0,1).transpose(1,2), grad_ad_tb[:TBl, :, :2*D])
+        grad_a_sumd = grad_ad_tn.sum(0)
+        grad_bd.add_(grad_a_sumd)
+        torch.mul(x_t, rd_t, out=temp_bufferd_t)
+        grad_Wxd[:, 2*D:3*D].addbmm_(temp_bufferd_t.transpose(0,1).transpose(1,2), grad_ad_tb[:TBl, :, 2*D:3*D])
+        torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=temp_bufferd_tn)
+        temp_bufferd_t.mul_(rd_t)
+    return (grad_x, grad_first_ht, grad_weight, grad_bias, None, None, None, None, None)
+
+
+
+
+
+
 
