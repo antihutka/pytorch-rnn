@@ -2,6 +2,7 @@ import torch
 import math
 from torch.nn.parameter import Parameter
 import torch.nn.functional as F
+import torch.nn.init as init
 
 class GRIDGRU(torch.nn.Module):
   def __init__(self, input_dim, hidden_dim, zoneout = 0, zoneoutd = 0, weight = None, bias = None):
@@ -27,8 +28,8 @@ class GRIDGRU(torch.nn.Module):
   def reset(self, std = None):
     if not std:
       std = 1.0 / math.sqrt(self.hidden_dim + self.input_dim)
-    self.bias.normal_(std = std)
-    self.weight.normal_(std = std)
+    init.normal_(self.bias, std = std)
+    init.normal_(self.weight, std = std)
     return self
 
   def get_weights(self):

@@ -79,6 +79,25 @@ class LanguageModel(torch.nn.Module):
       if has_state:
         self.stateful_layers.add(layer)
 
+  def build_model(self, layertype = 'GRIDGRU', dropout = 0, num_layers = 2, **kwargs):
+    current_size = len(self.idx_to_token)
+    self.layers.append(torch.nn.Embedding(current_size, kwargs['D']))
+    current_size = kwargs['D']
+    for i in range(0, num_layers):
+      if layertype == 'GRIDGRU':
+        lay = GRIDGRU(current_size, kwargs['H'], kwargs['zoneout'])
+        self.layers.append(lay)
+        self.stateful_layers.add(lay)
+      else:
+        raise Exception("Unknown layer type")
+      if dropout > 0:
+        self.layers.append(torch.nn.Dropout(p=dropout, inplace=True))
+    self.layers.append(torch.nn.Linear(current_size, len(self.idx_to_token)))
+    for li, lay in enumerate(self.layers):
+      ln = "%d-%s" % (li, type(lay).__name__)
+      self.add_module(ln, lay)
+      print(ln)
+
   def encode_string(self, input_string):
     if isinstance(input_string, str):
       input_string = input_string.encode()
