@@ -30,6 +30,10 @@ class DataLoader:
       for spl in ['test', 'val', 'train']:
         self.splits[spl] = torch.from_numpy(f[spl][:])
         logger.info('Loaded %d items from %s' % (self.splits[spl].size(0), spl))
+    if all((s.min()>0 for s in self.splits.values())):
+      logger.info('No zeroes found in data, assuming one-based indexes')
+      for t in self.splits.values():
+        t.add_(-1)
 
   def make_batches(self, splitname = 'train', offset = 0):
     data = self.splits[splitname]
