@@ -143,3 +143,6 @@ class LanguageModel(torch.nn.Module):
 
   def get_state(self, batch_idx = None):
     return { layerid:(tensor.cpu()) if (tensor.is_cuda) else (tensor.clone()) for (layerid, tensor) in self.layer_states }
+
+  def clear_states(self):
+    self.layer_states.clear()

@@ -61,6 +61,9 @@ for epoch in range(0, 1):
     T = iter_data.inputs.size(1)
     optimizer.zero_grad()
     # handle pre-input
+    model.clear_states()
+    with torch.no_grad():
+      model(iter_data.preinputs.long())
     tfwd_start = time.clock()
     outputs = model(iter_data.inputs.long())
     loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
