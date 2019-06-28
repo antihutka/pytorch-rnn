@@ -75,7 +75,14 @@ for epoch in range(0, 1):
     print('iteration %d/%d loss %.2f time %.2f fwd %.2f bck %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart, tfwd_end - tfwd_start, tbck_end - tfwd_end))
     totalfwd += tfwd_end-tfwd_start
     totalbck += tbck_end-tfwd_end
-#    if iter_data.i > 10:
-#      break
 
+  model.clear_states()
+  valdata = loader.make_batches('val', shuffle=False)
+  with torch.no_grad():
+    for iter_data in valdata.data:
+      if iter_data.preinputs is not None:
+        model(iter_data.preinputs.long())
+      outputs = model(iter_data.inputs.long())
+      loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
+      print('val loss: %.2f' % loss)
 print("total fwd/bck: %.2f/%.2f" % (totalfwd, totalbck))

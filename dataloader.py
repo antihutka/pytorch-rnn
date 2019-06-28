@@ -35,21 +35,27 @@ class DataLoader:
       for t in self.splits.values():
         t.add_(-1)
 
-  def make_batches(self, splitname = 'train', offset = 0):
+  def make_batches(self, splitname = 'train', offset = 0, shuffle = True):
     data = self.splits[splitname]
     inputs = data[offset:-2]
     outputs = data[offset+1:-1]
     numseq = inputs.size(0) // self.seq_length
     numbat = (numseq-1) // self.batch_size
     logger.info('%d sequences, %d batches for split %s' % (numseq, numbat, splitname))
-    permutation = split_tensor(torch.randperm(numseq - 1), numbat, self.batch_size)
+    if shuffle:
+      permutation = split_tensor(torch.randperm(numseq - 1), numbat, self.batch_size)
+    else:
+      permutation = split_tensor(torch.arange(0, self.batch_size*numbat), self.batch_size, numbat).t()
     inputs_split = split_tensor(inputs, numseq, self.seq_length)
     outputs_split = split_tensor(outputs, numseq, self.seq_length)
     def gen():
       for i in range(0, numbat):
         bperm = permutation[i]
         bperm_next = bperm.add(1)
-        i_preinputs = torch.index_select(inputs_split, 0, bperm)
+        if shuffle or i == 0:
+          i_preinputs = torch.index_select(inputs_split, 0, bperm)
+        else:
+          i_preinputs = None
         i_inputs = torch.index_select(inputs_split, 0, bperm_next)
         i_outputs = torch.index_select(outputs_split, 0, bperm_next)
         yield IterationData(i, i_preinputs, i_inputs, i_outputs)
