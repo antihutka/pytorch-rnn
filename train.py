@@ -6,12 +6,15 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 import time
+from trainutils import Timer
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_h5', default='data/tiny-shakespeare.h5')
 parser.add_argument('--input_json', default='data/tiny-shakespeare.json')
 parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--seq_length', default=64, type=int)
+
+parser.add_argument('--num_epochs', default=50, type=int)
 
 parser.add_argument('--num_layers', default=2, type=int)
 parser.add_argument('--embedding_dim', default=128, type=int)
@@ -52,29 +55,33 @@ loader = DataLoader(
 
 totalfwd = 0
 totalbck = 0
+timer_pre = Timer()
+timer_fwd = Timer()
+timer_bck = Timer()
+timer_tot = Timer()
 
-for epoch in range(0, 1):
+for epoch in range(0, args.num_epochs):
   traindata = loader.make_batches('train', 0)
+  timer_pre.reset()
+  timer_fwd.reset()
+  timer_bck.reset()
+  timer_tot.reset()
   for iter_data in traindata.data:
-    tstart = time.clock()
+    timer_tot.start()
     N = iter_data.inputs.size(0)
     T = iter_data.inputs.size(1)
     optimizer.zero_grad()
-    # handle pre-input
     model.clear_states()
-    with torch.no_grad():
+    with torch.no_grad(), timer_pre:
       model(iter_data.preinputs.long())
-    tfwd_start = time.clock()
-    outputs = model(iter_data.inputs.long())
-    loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
-    tfwd_end = time.clock()
-    loss.backward()
-    tbck_end = time.clock()
+    with timer_fwd:
+      outputs = model(iter_data.inputs.long())
+      loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
+    with timer_bck:
+      loss.backward()
     optimizer.step()
-    tend = time.clock()
-    print('iteration %d/%d loss %.2f time %.2f fwd %.2f bck %.2f' % (iter_data.i, traindata.batch_count, loss, tend - tstart, tfwd_end - tfwd_start, tbck_end - tfwd_end))
-    totalfwd += tfwd_end-tfwd_start
-    totalbck += tbck_end-tfwd_end
+    timer_tot.stop()
+    print('ep %d/%d iter %d/%d loss %.4f Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.last))
 
   model.clear_states()
   valdata = loader.make_batches('val', shuffle=False)
@@ -85,4 +92,3 @@ for epoch in range(0, 1):
       outputs = model(iter_data.inputs.long())
       loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
       print('val loss: %.2f' % loss)
-print("total fwd/bck: %.2f/%.2f" % (totalfwd, totalbck))
