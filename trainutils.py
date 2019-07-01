@@ -1,4 +1,5 @@
 import time
+import torch
 
 class TrainLog:
   def __init__(self):
@@ -24,3 +25,21 @@ class Timer:
     self.last = self.endtime - self.starttime
     self.total += self.last
     self.count += 1
+  def average(self):
+    return self.total / self.count
+
+class Average:
+  def __init__(self, cnt):
+    self.valid_cnt = 0
+    self.wpos = 0
+    self.cnt = cnt
+    self.values = torch.zeros(cnt)
+    self.sum = 0
+  def add_value(self, value):
+    self.sum = self.sum - self.values[self.wpos] + value
+    self.values[self.wpos] = value
+    self.wpos = (self.wpos + 1) % self.cnt
+    if self.valid_cnt < self.cnt:
+      self.valid_cnt += 1
+  def avg(self):
+    return self.sum / self.valid_cnt

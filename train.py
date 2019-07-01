@@ -6,7 +6,7 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 import time
-from trainutils import Timer
+from trainutils import Timer, Average
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_h5', default='data/tiny-shakespeare.h5')
@@ -62,6 +62,7 @@ timer_pre = Timer()
 timer_fwd = Timer()
 timer_bck = Timer()
 timer_tot = Timer()
+avg_tloss = Average(100)
 
 for epoch in range(0, args.num_epochs):
   traindata = loader.make_batches('train', 0)
@@ -70,6 +71,7 @@ for epoch in range(0, args.num_epochs):
   timer_bck.reset()
   timer_tot.reset()
   totalloss = 0
+  model.train()
   for iter_data in traindata.data:
     timer_tot.start()
     N = iter_data.inputs.size(0)
@@ -85,11 +87,14 @@ for epoch in range(0, args.num_epochs):
       loss.backward()
     optimizer.step()
     timer_tot.stop()
-    totalloss += loss;
-    print('ep %d/%d iter %d/%d loss=%.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.last))
+    totalloss += loss.detach()
+    avg_tloss.add_value(loss.detach())
+    print('ep %d/%d iter %d/%d loss=%.4f, %.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' %
+      (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average()))
   print('average loss: %.4f' % (totalloss.item()/traindata.batch_count))
 
   model.clear_states()
+  model.eval()
   valdata = loader.make_batches('val', shuffle=False)
   timer_tot.reset()
   timer_fwd.reset()
