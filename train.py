@@ -23,6 +23,8 @@ parser.add_argument('--zoneout', default=0, type=float)
 parser.add_argument('--dropout', default=0, type=float)
 
 parser.add_argument('--learning-rate', default=0.002, type=float)
+parser.add_argument('--lrdecay-every', default=5, type=int)
+parser.add_argument('--lrdecay-factor', default=0.5, type=float)
 parser.add_argument('--checkpoint', default='models/output')
 args = parser.parse_args()
 
@@ -43,6 +45,7 @@ model.build_model(
 print(model.layers)
 logger.info('Created model with %d parameters' % sum((p.numel() for p in model.parameters())))
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
 crit = nn.CrossEntropyLoss()
 
 logger.info('Loading data')
@@ -66,6 +69,7 @@ for epoch in range(0, args.num_epochs):
   timer_fwd.reset()
   timer_bck.reset()
   timer_tot.reset()
+  totalloss = 0
   for iter_data in traindata.data:
     timer_tot.start()
     N = iter_data.inputs.size(0)
@@ -81,7 +85,9 @@ for epoch in range(0, args.num_epochs):
       loss.backward()
     optimizer.step()
     timer_tot.stop()
-    print('ep %d/%d iter %d/%d loss %.4f Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.last))
+    totalloss += loss;
+    print('ep %d/%d iter %d/%d loss=%.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.last))
+  print('average loss: %.4f' % (totalloss.item()/traindata.batch_count))
 
   model.clear_states()
   valdata = loader.make_batches('val', shuffle=False)
@@ -100,3 +106,4 @@ for epoch in range(0, args.num_epochs):
       timer_tot.stop()
       print('ep %d/%d iter %d/%d loss: %.4f Time: %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_fwd.last, timer_tot.last, (iter_data.inputs.size(0)*iter_data.inputs.size(1))/timer_tot.last))
     print('average loss: %.4f' % (totalloss.item()/valdata.batch_count))
+  scheduler.step()
