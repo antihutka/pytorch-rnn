@@ -85,10 +85,18 @@ for epoch in range(0, args.num_epochs):
 
   model.clear_states()
   valdata = loader.make_batches('val', shuffle=False)
+  timer_tot.reset()
+  timer_fwd.reset()
   with torch.no_grad():
+    totalloss = torch.Tensor([0])
     for iter_data in valdata.data:
+      timer_tot.start()
       if iter_data.preinputs is not None:
         model(iter_data.preinputs.long())
-      outputs = model(iter_data.inputs.long())
+      with timer_fwd:
+        outputs = model(iter_data.inputs.long())
       loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
-      print('val loss: %.2f' % loss)
+      totalloss += loss
+      timer_tot.stop()
+      print('ep %d/%d iter %d/%d loss: %.4f Time: %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_fwd.last, timer_tot.last, (iter_data.inputs.size(0)*iter_data.inputs.size(1))/timer_tot.last))
+    print('average loss: %.4f' % (totalloss.item()/valdata.batch_count))
