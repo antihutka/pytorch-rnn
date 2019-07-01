@@ -26,6 +26,8 @@ parser.add_argument('--learning-rate', default=0.002, type=float)
 parser.add_argument('--lrdecay-every', default=5, type=int)
 parser.add_argument('--lrdecay-factor', default=0.5, type=float)
 parser.add_argument('--checkpoint', default='models/output')
+
+parser.add_argument('--device', default='cpu')
 args = parser.parse_args()
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -56,6 +58,9 @@ loader = DataLoader(
   seq_length = args.seq_length
   )
 
+device = torch.device(args.device)
+model.to(device)
+
 totalfwd = 0
 totalbck = 0
 timer_pre = Timer()
@@ -79,10 +84,10 @@ for epoch in range(0, args.num_epochs):
     optimizer.zero_grad()
     model.clear_states()
     with torch.no_grad(), timer_pre:
-      model(iter_data.preinputs.long())
+      model(iter_data.preinputs.to(device).long())
     with timer_fwd:
-      outputs = model(iter_data.inputs.long())
-      loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
+      outputs = model(iter_data.inputs.to(device).long())
+      loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
     with timer_bck:
       loss.backward()
     optimizer.step()
@@ -103,10 +108,10 @@ for epoch in range(0, args.num_epochs):
     for iter_data in valdata.data:
       timer_tot.start()
       if iter_data.preinputs is not None:
-        model(iter_data.preinputs.long())
+        model(iter_data.preinputs.to(device).long())
       with timer_fwd:
-        outputs = model(iter_data.inputs.long())
-      loss = crit(outputs.view(N*T, -1), iter_data.outputs.long().view(N*T))
+        outputs = model(iter_data.inputs.to(device).long())
+      loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
       totalloss += loss
       timer_tot.stop()
       print('ep %d/%d iter %d/%d loss: %.4f Time: %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_fwd.last, timer_tot.last, (iter_data.inputs.size(0)*iter_data.inputs.size(1))/timer_tot.last))
