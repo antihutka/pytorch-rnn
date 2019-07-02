@@ -18,7 +18,7 @@ def tensor_from_tensordef(td, storage):
 
 def layer_from_layerdef(layerdef, storage):
   ltype = layerdef['type']
-  if ltype == 'LookupTable':
+  if ltype == 'LookupTable' or ltype == 'Embedding':
     w = tensor_from_tensordef(layerdef['weight'], storage)
     return torch.nn.Embedding.from_pretrained(embeddings=w), False
   elif ltype == 'GRIDGRU':
@@ -33,6 +33,23 @@ def layer_from_layerdef(layerdef, storage):
     return RNNLinear(weight = w, bias = b), False
   else:
     raise(Exception("unknown layer %s" % ltype))
+
+def save_layer(layer, params):
+  ltype = layer.__class__.__name__
+  if ltype == 'Embedding':
+    ld = {'weight' : params[layer.weight]}
+  elif ltype == 'GRIDGRU':
+    ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias],
+          'hidden_dim' : layer.hidden_dim, 'input_dim' : layer.input_dim,
+          'zoneout_p' : layer.zoneout, 'zoneout_pd' : layer.zoneoutd }
+  elif ltype == 'Dropout':
+    ld = {'p' : layer.p}
+  elif ltype == 'Linear':
+    ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias]}
+  else:
+    raise Exception('Unknown layer type' + ltype)
+  ld['type'] = ltype
+  return ld
 
 class LanguageModel(torch.nn.Module):
   def __init__(self):
@@ -78,6 +95,31 @@ class LanguageModel(torch.nn.Module):
       self.add_module("%d-%s" % (idx, layerdef['type']), layer)
       if has_state:
         self.stateful_layers.add(layer)
+
+  def save_model(self, filename):
+    params = {}
+    storages = {}
+    filesize = 0
+    for param in self.parameters():
+      stor = param.storage()
+      if stor not in storages:
+        storages[stor] = filesize
+        filesize += stor.size()
+      params[param] = { "stride" : param.stride(), "size" : param.size(), "storage" : 0, "offset" : storages[stor] + param.storage_offset() }
+    layers = [save_layer(l, params) for l in self.layers]
+    with open(filename + '.json', 'w') as f:
+      json.dump({'layers':layers, 'idx_to_token' : self.jsonify_tokens()}, f)
+    filestorage = torch.FloatStorage.from_file(filename + '.0', shared=True, size=filesize)
+    for (stor,off) in storages.items():
+      filestorage[off : off+stor.size()].copy_(stor)
+
+  def jsonify_tokens(self):
+    def t(token):
+      if token == token.decode('utf8', errors='ignore').encode('utf8'):
+        return token.decode('utf8')
+      else:
+        return list(token)
+    return [t(self.idx_to_token[i]) for i in range(0, len(self.idx_to_token))]
 
   def build_model(self, layertype = 'GRIDGRU', dropout = 0, num_layers = 2, **kwargs):
     current_size = len(self.idx_to_token)

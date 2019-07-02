@@ -25,7 +25,7 @@ parser.add_argument('--dropout', default=0, type=float)
 parser.add_argument('--learning-rate', default=0.002, type=float)
 parser.add_argument('--lrdecay-every', default=5, type=int)
 parser.add_argument('--lrdecay-factor', default=0.5, type=float)
-parser.add_argument('--checkpoint', default='models/output')
+parser.add_argument('--checkpoint-name', default='models/output')
 
 parser.add_argument('--device', default='cpu')
 parser.add_argument('--print-every', default=1, type=float)
@@ -122,3 +122,5 @@ for epoch in range(0, args.num_epochs):
     vloss_history.add_value(epoch, totalloss.item()/valdata.batch_count)
     print(vloss_history.format())
   scheduler.step()
+
+  model.save_model("%s_%d" % (args.checkpoint_name, epoch))
