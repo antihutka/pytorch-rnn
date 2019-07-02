@@ -7,6 +7,8 @@ checkpoint = your-model.json
 [defaults]
 temperature = 0.8
 maxlength = 1024
+softlength_max = 400
+softlength_mult = 0.03
 
 [store]
 type = sqlite
