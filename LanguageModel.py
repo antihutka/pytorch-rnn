@@ -62,10 +62,13 @@ class LanguageModel(torch.nn.Module):
 
   def parse_tokendata(self, j):
     for idx, token in enumerate(j['idx_to_token']):
-      token_e = token.encode()
+      if isinstance(token, list):
+        token_e = bytes(token)
       # assume we used bytes encoding
-      if (len(token) > 1):
+      elif (len(token) > 1):
         token_e = bytes([int(token[1:-1])])
+      else:
+        token_e = token.encode()
       self.idx_to_token[idx] = token_e
       self.token_to_idx[token_e] = idx
 
