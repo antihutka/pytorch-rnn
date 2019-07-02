@@ -6,6 +6,7 @@ import torch.optim as optim
 import torch.nn as nn
 import torch
 import time
+import json
 from trainutils import Timer, Average, ValueHistory
 
 parser = argparse.ArgumentParser()
@@ -70,6 +71,7 @@ timer_bck = Timer()
 timer_tot = Timer()
 avg_tloss = Average(100)
 vloss_history = ValueHistory('val loss')
+tloss_history = ValueHistory('train loss')
 
 for epoch in range(0, args.num_epochs):
   traindata = loader.make_batches('train', 0)
@@ -96,6 +98,7 @@ for epoch in range(0, args.num_epochs):
     timer_tot.stop()
     totalloss += loss.detach()
     avg_tloss.add_value(loss.detach())
+    tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, float(loss))
     if iter_data.i % args.print_every == 0:
       print('ep %d/%d iter %d/%d loss=%.4f, %.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' %
         (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average()))
@@ -118,9 +121,13 @@ for epoch in range(0, args.num_epochs):
       totalloss += loss
       timer_tot.stop()
       if iter_data.i % args.print_every == 0:
-        print('ep %d/%d iter %d/%d loss: %.4f Time: %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, timer_fwd.last, timer_tot.last, (iter_data.inputs.size(0)*iter_data.inputs.size(1))/timer_tot.last))
+        print('ep %d/%d iter %d/%d loss: %.4f Time: %.2f %.2f (%4.1f tps)' % (epoch, args.num_epochs, iter_data.i, valdata.batch_count, loss, timer_fwd.last, timer_tot.last, (iter_data.inputs.size(0)*iter_data.inputs.size(1))/timer_tot.last))
     vloss_history.add_value(epoch, totalloss.item()/valdata.batch_count)
     print(vloss_history.format())
   scheduler.step()
 
   model.save_model("%s_%d" % (args.checkpoint_name, epoch))
+  with open("%s_%d_stats.json" % (args.checkpoint_name, epoch), 'w') as f:
+    json.dump(
+      {"train_loss" : tloss_history.values, "train_loss_i" : tloss_history.steps,
+       "val_loss" : vloss_history.values, "val_loss_i" : vloss_history.steps}, f)
