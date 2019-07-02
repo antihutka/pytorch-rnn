@@ -30,4 +30,4 @@ print('ok!')
 while True:
   req = sampler.make_get_request(gc)
   sampler.run_requests([req])
-  print(model.decode_string(req.sampled_sequence).decode(), end="")
+  print(model.decode_string(req.sampled_sequence).decode(errors='backslashreplace'), end="")
