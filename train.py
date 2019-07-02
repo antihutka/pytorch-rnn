@@ -9,16 +9,16 @@ import time
 from trainutils import Timer, Average, ValueHistory
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--input_h5', default='data/tiny-shakespeare.h5')
-parser.add_argument('--input_json', default='data/tiny-shakespeare.json')
-parser.add_argument('--batch_size', default=64, type=int)
-parser.add_argument('--seq_length', default=64, type=int)
+parser.add_argument('--input-h5', default='data/tiny-shakespeare.h5')
+parser.add_argument('--input-json', default='data/tiny-shakespeare.json')
+parser.add_argument('--batch-size', default=64, type=int)
+parser.add_argument('--seq-length', default=64, type=int)
 
-parser.add_argument('--num_epochs', default=50, type=int)
+parser.add_argument('--num-epochs', default=50, type=int)
 
-parser.add_argument('--num_layers', default=2, type=int)
-parser.add_argument('--embedding_dim', default=128, type=int)
-parser.add_argument('--hidden_dim', default=128, type=int)
+parser.add_argument('--num-layers', default=2, type=int)
+parser.add_argument('--embedding-dim', default=128, type=int)
+parser.add_argument('--hidden-dim', default=128, type=int)
 parser.add_argument('--zoneout', default=0, type=float)
 parser.add_argument('--dropout', default=0, type=float)
 
