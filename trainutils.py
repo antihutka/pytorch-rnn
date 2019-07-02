@@ -43,3 +43,22 @@ class Average:
       self.valid_cnt += 1
   def avg(self):
     return self.sum / self.valid_cnt
+
+class ValueHistory:
+  def __init__(self, name):
+    self.name = name
+    self.values = []
+    self.steps = []
+  def add_value(self, i, value):
+    self.steps.append(i)
+    self.values.append(value)
+  def format(self):
+    s = "%s" % self.name
+    if self.values:
+      s += "[%d]=%.4f" % (self.steps[-1], self.values[-1])
+    else:
+      s += " ???"
+    if len(self.values) > 1:
+      s += " diff=%.4f" % (self.values[-1] - self.values[-2])
+      s += " best=%.4f at %d" % (min(self.values), self.steps[self.values.index(min(self.values))])
+    return s
