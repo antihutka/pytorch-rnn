@@ -18,15 +18,16 @@ sampler = sampling.Sampler(model)
 
 stor = M.DefaultStateStore(model)
 pc = sampling.default_put_chains(stor)
-gc = sampling.default_get_chains(stor)
+gc = sampling.default_get_chains(stor, endtoken=[model.token_to_idx[b'\n']])
 
 #print(pc.__dict__)
 #print(gc.__dict__)
 
-gc.sample_post += [M.PrintSampledString(model)]
+#gc.sample_post += [M.PrintSampledString(model)]
 
 sampler.run_requests([sampler.make_put_request(pc, model.encode_string('Hello!\n'))])
 print('ok!')
-sampler.run_requests([sampler.make_get_request(gc)])
-
-print('generated output: %s' % tm.current_str.decode(errors='replace'))
+while True:
+  req = sampler.make_get_request(gc)
+  sampler.run_requests([req])
+  print(model.decode_string(req.sampled_sequence).decode(), end="")
