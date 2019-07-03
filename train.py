@@ -26,8 +26,9 @@ parser.add_argument('--dropout', default=0, type=float)
 parser.add_argument('--learning-rate', default=0.002, type=float)
 parser.add_argument('--lrdecay-every', default=5, type=int)
 parser.add_argument('--lrdecay-factor', default=0.5, type=float)
-parser.add_argument('--checkpoint-name', default='models/output')
+parser.add_argument('--grad-clip', default=5, type=float)
 
+parser.add_argument('--checkpoint-name', default='models/output')
 parser.add_argument('--device', default='cpu')
 parser.add_argument('--print-every', default=1, type=float)
 args = parser.parse_args()
@@ -94,12 +95,16 @@ for epoch in range(0, args.num_epochs):
       loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
     with timer_bck:
       loss.backward()
+    if args.grad_clip > 0:
+      for par in model.parameters():
+        par.grad.clamp_(-args.grad_clip, args.grad_clip)
     optimizer.step()
     timer_tot.stop()
     totalloss += loss.detach()
     avg_tloss.add_value(loss.detach())
     tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, float(loss))
     if iter_data.i % args.print_every == 0:
+      assert not torch.isnan(loss)
       print('ep %d/%d iter %d/%d loss=%.4f, %.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' %
         (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average()))
   print('average loss: %.4f' % (totalloss.item()/traindata.batch_count))
