@@ -41,7 +41,7 @@ class DataLoader:
     outputs = data[offset+1:-1]
     numseq = inputs.size(0) // self.seq_length
     numbat = (numseq-1) // self.batch_size
-    logger.info('%d sequences, %d batches for split %s' % (numseq, numbat, splitname))
+    logger.info('%d sequences, %d batches for split %s with offset %d' % (numseq, numbat, splitname, offset))
     if shuffle:
       permutation = split_tensor(torch.randperm(numseq - 1), numbat, self.batch_size)
     else:

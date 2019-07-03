@@ -14,6 +14,7 @@ parser.add_argument('--input-h5', default='data/tiny-shakespeare.h5')
 parser.add_argument('--input-json', default='data/tiny-shakespeare.json')
 parser.add_argument('--batch-size', default=64, type=int)
 parser.add_argument('--seq-length', default=64, type=int)
+parser.add_argument('--no-offset', default=False, action='store_true')
 
 parser.add_argument('--num-epochs', default=50, type=int)
 
@@ -75,7 +76,7 @@ vloss_history = ValueHistory('val loss')
 tloss_history = ValueHistory('train loss')
 
 for epoch in range(0, args.num_epochs):
-  traindata = loader.make_batches('train', 0)
+  traindata = loader.make_batches('train', 0 if (args.no_offset or epoch % 2 == 0) else (args.seq_length // 2))
   timer_pre.reset()
   timer_fwd.reset()
   timer_bck.reset()
