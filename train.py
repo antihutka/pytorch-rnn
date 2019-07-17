@@ -18,6 +18,7 @@ parser.add_argument('--no-offset', default=False, action='store_true')
 
 parser.add_argument('--num-epochs', default=50, type=int)
 
+parser.add_argument('--layer-type', default='GRIDGRU')
 parser.add_argument('--num-layers', default=2, type=int)
 parser.add_argument('--embedding-dim', default=128, type=int)
 parser.add_argument('--hidden-dim', default=128, type=int)
@@ -41,7 +42,7 @@ logger.info('Creating model')
 model = LanguageModel()
 model.load_tokendata(args.input_json)
 model.build_model(
-  layertype = 'GRIDGRU',
+  layertype = args.layer_type,
   dropout = args.dropout,
   num_layers = args.num_layers,
   D = args.embedding_dim,

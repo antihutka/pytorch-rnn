@@ -2,6 +2,7 @@ import torch
 import json
 import os.path
 from gridgru import GRIDGRU
+from lstm import PTLSTM
 from simple_layers import RNNLinear
 
 def find_data_file(jpath):
@@ -25,6 +26,12 @@ def layer_from_layerdef(layerdef, storage):
     w = tensor_from_tensordef(layerdef['weight'], storage)
     b = tensor_from_tensordef(layerdef['bias'], storage)
     return GRIDGRU(layerdef['input_dim'], layerdef['hidden_dim'], zoneout = layerdef['zoneout_p'], zoneoutd = layerdef['zoneout_pd'], weight = w, bias = b), True
+  elif ltype == 'PTLSTM':
+    w_ih = tensor_from_tensordef(layerdef['w_ih'], storage)
+    w_hh = tensor_from_tensordef(layerdef['w_hh'], storage)
+    b_ih = tensor_from_tensordef(layerdef['b_ih'], storage)
+    b_hh = tensor_from_tensordef(layerdef['b_hh'], storage)
+    return PTLSTM(layerdef['input_dim'], layerdef['hidden_dim'], w_ih=w_ih, w_hh=w_hh, b_ih=b_ih, b_hh=b_hh), True
   elif ltype == 'Dropout':
     return torch.nn.Dropout(p = layerdef['p'], inplace = True), False
   elif ltype == 'Linear':
@@ -42,12 +49,16 @@ def save_layer(layer, params):
     ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias],
           'hidden_dim' : layer.hidden_dim, 'input_dim' : layer.input_dim,
           'zoneout_p' : layer.zoneout, 'zoneout_pd' : layer.zoneoutd }
+  elif ltype == 'PTLSTM':
+    ld = {'w_ih' : params[layer.w_ih], 'w_hh' : params[layer.w_hh],
+          'b_ih' : params[layer.b_ih], 'b_hh' : params[layer.b_hh],
+          'hidden_dim' : layer.hidden_dim, 'input_dim' : layer.input_dim}
   elif ltype == 'Dropout':
     ld = {'p' : layer.p}
   elif ltype == 'Linear':
     ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias]}
   else:
-    raise Exception('Unknown layer type' + ltype)
+    raise Exception('Unknown layer type ' + ltype)
   ld['type'] = ltype
   return ld
 
@@ -133,6 +144,11 @@ class LanguageModel(torch.nn.Module):
         lay = GRIDGRU(current_size, kwargs['H'], kwargs['zoneout'])
         self.layers.append(lay)
         self.stateful_layers.add(lay)
+      elif layertype == 'LSTM':
+        lay = PTLSTM(current_size, kwargs['H'])
+        self.layers.append(lay)
+        self.stateful_layers.add(lay)
+        current_size = kwargs['H']
       else:
         raise Exception("Unknown layer type")
       if dropout > 0:
