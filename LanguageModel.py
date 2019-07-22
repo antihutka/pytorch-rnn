@@ -72,16 +72,23 @@ class LanguageModel(torch.nn.Module):
     self.layer_states = {}
 
   def parse_tokendata(self, j):
+    self.longest_token = 0
     for idx, token in enumerate(j['idx_to_token']):
       if isinstance(token, list):
         token_e = bytes(token)
-      # assume we used bytes encoding
-      elif (len(token) > 1):
+      # transform [n] tokens to byte value
+      elif (isinstance(token, str) and
+            len(token) > 2
+            and token.startswith("[")
+            and token.endswith("]")):
         token_e = bytes([int(token[1:-1])])
       else:
         token_e = token.encode()
       self.idx_to_token[idx] = token_e
       self.token_to_idx[token_e] = idx
+      if self.longest_token < len(token_e):
+        self.longest_token = len(token_e)
+    print('longest token %d' % self.longest_token)
 
   def load_tokendata(self, filename):
     with open(filename, "r") as f:
@@ -159,18 +166,25 @@ class LanguageModel(torch.nn.Module):
       self.add_module(ln, lay)
       print(ln)
 
+  def longest_prefix(self, input_string):
+    for toklen in range(self.longest_token, 0, -1):
+      t = input_string[0:toklen]
+      if t in self.token_to_idx:
+        return t
+    return None
+
   def encode_string(self, input_string):
     if isinstance(input_string, str):
       input_string = input_string.encode()
     tokens = []
-    # assume all tokens are 1-byte for now
     while len(input_string) > 0:
-      if input_string[0:1] in self.token_to_idx:
-        tokens += [self.token_to_idx[input_string[0:1]]]
-      else:
+      tok = self.longest_prefix(input_string)
+      if tok is None:
         print('warning: token not found {0}'.format(input_string[0:1]))
-      input_string = input_string[1:]
-    #print(tokens)
+        input_string = input_string[1:]
+      else:
+        tokens.append(self.token_to_idx[tok])
+        input_string = input_string[len(tok):]
     return torch.LongTensor(tokens).unsqueeze(0)
 
   def decode_string(self, input_sequence):

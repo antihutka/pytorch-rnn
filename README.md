@@ -40,5 +40,5 @@ The server can handle multiple parallel requests by packing them into one batch,
 
 # Differences from `torch-rnn`
 - Only GridGRU layers are implemented at this time, based on [guillitte's implementation](https://github.com/guillitte/torch-rnn/tree/Dev). More layer types will be implemented later
-- Only `bytes` encoding is fully supported at this time. The code is written to be as encoding- and tokenization-independent as possible, so working with unicode, word-level or non-text models will be possible.
+- String decoder works on byte level and is fully encoding-agnostic. Any tokenization scheme (bytes, unicode, words...) should work, as long as it can be decoded by a greedy algorithm.
 - Training gives significanly worse results than the old implementation with the same hyperparameters. This is being worked on.
