@@ -41,4 +41,4 @@ The server can handle multiple parallel requests by packing them into one batch,
 # Differences from `torch-rnn`
 - Only GridGRU layers are implemented at this time, based on [guillitte's implementation](https://github.com/guillitte/torch-rnn/tree/Dev). More layer types will be implemented later
 - String decoder works on byte level and is fully encoding-agnostic. Any tokenization scheme (bytes, unicode, words...) should work, as long as it can be decoded by a greedy algorithm.
-- Training gives significanly worse results than the old implementation with the same hyperparameters. This is being worked on.
+- Training now gives expected results. For some reason PyTorch 1.0 was causing gradient issues, but updating to 1.1 fixed it.
