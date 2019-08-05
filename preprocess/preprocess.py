@@ -47,6 +47,18 @@ class Vocabulary():
     with open(filename, "w") as f:
       json.dump({ 'idx_to_token': [jsonify_token(t) for t in self.idx_to_token] }, f) #we can't handle non-UTF8 stuff yet
 
+  def __len__(self):
+    return len(self.idx_to_token)
+
+  def __getitem__(self, k):
+    return self.idx_to_token[k]
+
+  def remove(self, tok):
+    itt = self.idx_to_token
+    itt.remove(tok)
+    self.token_to_idx = {k:v for (v,k) in enumerate(itt)}
+    self.max_token_length = max((len(t) for t in itt))
+
 def read_file(filename):
   with open(filename, "rb") as f:
     while True:
@@ -90,12 +102,60 @@ parser.add_argument('--output-h5', default='data/tiny-shakespeare.h5')
 parser.add_argument('--val_frac', type=float, default=0.1)
 parser.add_argument('--test_frac', type=float, default=0.1)
 parser.add_argument('--freeze-vocab', action='store_true')
+parser.add_argument('--max-tokens', type=int, default=0)
+parser.add_argument('--min-merge-count', type=int, default=1000000)
 args = parser.parse_args()
 
 vocab = Vocabulary()
 
 if args.input_json:
   vocab.load(args.input_json)
+
+def tts(*args):
+  return b''.join(args).decode(errors='backslashreplace')
+
+def find_mergeable(vocab, reader, lookahead, stop_on_count = None):
+  last = -1
+  counts = {}
+  toks = 0
+  for tok in tokenize_chunks(vocab, reader, 256):
+    toks += 1
+    if last >= 0:
+      pair = (last, tok)
+      if pair in counts:
+        counts[pair] += 1
+      else:
+        counts[pair] = 1
+    if toks % 1000000 == 0:
+      toppairs = list(sorted(counts, key=counts.get, reverse=True))
+      print("%dM tokens processed, top: %s" % (toks/1000000, ", ".join(["%6s:%8d" % (repr(tts(vocab[x], vocab[y])), counts[x,y]) for (x,y) in toppairs[:15]])))
+      if stop_on_count and stop_on_count < counts[toppairs[0]]:
+        break
+    last = tok
+  toppairs = list(sorted(counts, key=counts.get, reverse=True))
+  return counts, toppairs
+
+merged_tokens = set()
+if args.max_tokens > 0:
+  while len(vocab) < args.max_tokens:
+    reader = read_file(args.input_file)
+    counts, toppairs = find_mergeable(vocab, reader, 256, args.min_merge_count)
+    pair = toppairs[0]
+    if counts[pair] > args.min_merge_count:
+      t1 = vocab[pair[0]]
+      t2 = vocab[pair[1]]
+      print("Merging tokens %d/%s + %d/%s" % (pair[0], tts(t1), pair[1], tts(t2)))
+      merged_tokens.add(t1+t2)
+      vocab.get_id(t1 + t2, allow_add = True)
+      if t1 in merged_tokens:
+        print("Deleting token %d/%s" % (pair[0], tts(t1)))
+        vocab.remove(t1)
+        merged_tokens.remove(t1)
+      if t2 in merged_tokens:
+        print("Deleting token %d/%s" % (pair[1], tts(t2)))
+        vocab.remove(t2)
+        merged_tokens.remove(t2)
+      print("New extra vocabulary is: %s, total size is %d" % ([tts(x) for x in merged_tokens], len(vocab)))
 
 reader = read_file(args.input_file)
 numtok = 0
