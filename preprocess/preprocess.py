@@ -141,6 +141,7 @@ def find_mergeable(vocab, reader, lookahead, stop_on_count = None):
   return counts, toppairs
 
 merged_tokens = set()
+removed_tokens = set()
 if args.max_tokens > 0:
   while len(vocab) < args.max_tokens:
     reader = read_file(args.input_file)
@@ -151,16 +152,20 @@ if args.max_tokens > 0:
       t2 = vocab[pair[1]]
       print("Merging tokens %d/%s + %d/%s => %s" % (pair[0], repr(tts(t1)), pair[1], repr(tts(t2)), repr(tts(t1,t2))))
       merged_tokens.add(t1+t2)
+      removed_tokens.discard(t1+t2)
       vocab.get_id(t1 + t2, allow_add = True)
       if t1 in merged_tokens:
         print("Deleting token %d/%s" % (pair[0], repr(tts(t1))))
         vocab.remove(t1)
         merged_tokens.remove(t1)
+        removed_tokens.add(t1)
       if t2 in merged_tokens:
         print("Deleting token %d/%s" % (pair[1], repr(tts(t2))))
         vocab.remove(t2)
         merged_tokens.remove(t2)
+        removed_tokens.add(t2)
       print("New extra vocabulary is: %s, total size is %d" % (sorted([tts(x) for x in merged_tokens], key=len), len(vocab)))
+      print("Removed vocabulary: %s" % (sorted([tts(x) for x in removed_tokens], key=len)))
       #print("Full vocabulary is: %s" % [tts(x) for x in vocab.idx_to_token])
     else:
       break
