@@ -164,8 +164,8 @@ if args.max_tokens > 0:
         vocab.remove(t2)
         merged_tokens.remove(t2)
         removed_tokens.add(t2)
-      print("New extra vocabulary is: %s, total size is %d" % (sorted([tts(x) for x in merged_tokens], key=len), len(vocab)))
-      print("Removed vocabulary: %s" % (sorted([tts(x) for x in removed_tokens], key=len)))
+      print("New extra vocabulary is: %s, total size is %d" % ([tts(x) for x in sorted(merged_tokens, key=len)], len(vocab)))
+      print("Removed vocabulary: %s" % ([tts(x) for x in sorted(removed_tokens, key=len)]))
       #print("Full vocabulary is: %s" % [tts(x) for x in vocab.idx_to_token])
     else:
       break
