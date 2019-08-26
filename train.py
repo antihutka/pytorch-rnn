@@ -15,6 +15,7 @@ parser.add_argument('--input-json', default='data/tiny-shakespeare.json')
 parser.add_argument('--batch-size', default=64, type=int)
 parser.add_argument('--seq-length', default=64, type=int)
 parser.add_argument('--no-offset', default=False, action='store_true')
+parser.add_argument('--double-seq-on', default='')
 
 parser.add_argument('--num-epochs', default=50, type=int)
 
@@ -66,6 +67,8 @@ loader = DataLoader(
 device = torch.device(args.device)
 model.to(device)
 
+double_seq_on = [int(x) for x in args.double_seq_on.split(',')]
+
 totalfwd = 0
 totalbck = 0
 timer_pre = Timer()
@@ -77,6 +80,11 @@ vloss_history = ValueHistory('val loss')
 tloss_history = ValueHistory('train loss')
 
 for epoch in range(0, args.num_epochs):
+  if epoch in double_seq_on:
+    args.seq_length *= 2
+    args.batch_size //= 2
+    loader.set_seq_batch(args.seq_length, args.batch_size)
+    logger.info('Doubling sequence length to seq_length=%d batch_size=%d' % (args.seq_length, args.batch_size))
   traindata = loader.make_batches('train', 0 if (args.no_offset or epoch % 2 == 0) else (args.seq_length // 2))
   timer_pre.reset()
   timer_fwd.reset()

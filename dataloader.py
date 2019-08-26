@@ -60,3 +60,7 @@ class DataLoader:
         i_outputs = torch.index_select(outputs_split, 0, bperm_next)
         yield IterationData(i, i_preinputs, i_inputs, i_outputs)
     return EpochData(gen(), numbat)
+
+  def set_seq_batch(self, seq_length, batch_size):
+    self.seq_length = seq_length
+    self.batch_size = batch_size
