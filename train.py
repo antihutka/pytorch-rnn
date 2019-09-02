@@ -67,7 +67,7 @@ loader = DataLoader(
 device = torch.device(args.device)
 model.to(device)
 
-double_seq_on = [int(x) for x in args.double_seq_on.split(',')]
+double_seq_on = [int(x) for x in args.double_seq_on.split(',')] if args.double_seq_on else []
 
 totalfwd = 0
 totalbck = 0
