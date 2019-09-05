@@ -128,10 +128,10 @@ def find_mergeable(vocab, reader, lookahead, stop_on_count = None):
         counts[pair] += 1
       else:
         counts[pair] = 1
-    if toks % 1000000 == 0:
+    if toks % 100000 == 0:
       toppairs = list(sorted(counts, key=counts.get, reverse=True))
       print("%3dM tokens %3dM bytes  %.3f bpt | top: %s" % (toks/1000000, tbytes/1000000, (tbytes/toks),
-            ", ".join(["%6s:%8d" % (repr(tts(vocab[x], vocab[y])), counts[x,y]) for (x,y) in toppairs[:15]])),
+            ", ".join(["%6s:%8d" % (repr(tts(vocab[x], vocab[y])), counts[x,y]) for (x,y) in toppairs[:10]])),
             end = '    \r')
       if stop_on_count and stop_on_count < counts[toppairs[0]]:
         break
@@ -164,8 +164,8 @@ if args.max_tokens > 0:
         vocab.remove(t2)
         merged_tokens.remove(t2)
         removed_tokens.add(t2)
-      print("New extra vocabulary is: %s, total size is %d" % ([tts(x) for x in sorted(merged_tokens, key=len)], len(vocab)))
-      print("Removed vocabulary: %s" % ([tts(x) for x in sorted(removed_tokens, key=len)]))
+      print("New extra vocabulary is: %s, total size is %d" % ([tts(x) for x in sorted(merged_tokens, key=len)][-15:], len(vocab)))
+      print("Removed vocabulary: %s" % ([tts(x) for x in sorted(removed_tokens, key=len)][-15:]))
       #print("Full vocabulary is: %s" % [tts(x) for x in vocab.idx_to_token])
     else:
       break
