@@ -2,6 +2,7 @@ import argparse
 import json
 import numpy as np
 import h5py
+import re
 
 def jsonify_token(token):
   if token == token.decode('utf8', errors='ignore').encode('utf8'):
@@ -114,6 +115,19 @@ if args.input_json:
 def tts(*args):
   return b''.join(args).decode(errors='backslashreplace')
 
+def valid_token(tt):
+  t = vocab[tt[0]] + vocab[tt[1]]
+  if b'\n' in t:
+    return False
+  if re.search(b'[A-Za-z] ', t):
+    return False
+  if re.search(b' [A-Za-z]', t):
+    return False
+  return True
+
+def filtercounts(counts):
+  return ( k for k in counts.keys() if valid_token(k) )
+
 def find_mergeable(vocab, reader, lookahead, stop_on_count = None):
   last = -1
   counts = {}
@@ -129,14 +143,14 @@ def find_mergeable(vocab, reader, lookahead, stop_on_count = None):
       else:
         counts[pair] = 1
     if toks % 100000 == 0:
-      toppairs = list(sorted(counts, key=counts.get, reverse=True))
+      toppairs = list(sorted(filtercounts(counts), key=counts.get, reverse=True))
       print("%3dM tokens %3dM bytes  %.3f bpt | top: %s" % (toks/1000000, tbytes/1000000, (tbytes/toks),
             ", ".join(["%6s:%8d" % (repr(tts(vocab[x], vocab[y])), counts[x,y]) for (x,y) in toppairs[:10]])),
             end = '    \r')
       if stop_on_count and stop_on_count < counts[toppairs[0]]:
         break
     last = tok
-  toppairs = list(sorted(counts, key=counts.get, reverse=True))
+  toppairs = list(sorted(filtercounts(counts), key=counts.get, reverse=True))
   print("")
   return counts, toppairs
 
@@ -154,15 +168,15 @@ if args.max_tokens > 0:
       merged_tokens.add(t1+t2)
       removed_tokens.discard(t1+t2)
       vocab.get_id(t1 + t2, allow_add = True)
-      if t1 in merged_tokens:
+      if t1 in merged_tokens or len(t1) > 1:
         print("Deleting token %d/%s" % (pair[0], repr(tts(t1))))
         vocab.remove(t1)
-        merged_tokens.remove(t1)
+        merged_tokens.discard(t1)
         removed_tokens.add(t1)
-      if t2 in merged_tokens:
+      if t2 in merged_tokens or len(t2) > 1:
         print("Deleting token %d/%s" % (pair[1], repr(tts(t2))))
         vocab.remove(t2)
-        merged_tokens.remove(t2)
+        merged_tokens.discard(t2)
         removed_tokens.add(t2)
       print("New extra vocabulary is: %s, total size is %d" % ([tts(x) for x in sorted(merged_tokens, key=len)][-15:], len(vocab)))
       print("Removed vocabulary: %s" % ([tts(x) for x in sorted(removed_tokens, key=len)][-15:]))
