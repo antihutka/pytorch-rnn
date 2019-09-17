@@ -40,6 +40,7 @@ def do_benchmark_for(bsize):
   inp = torch.LongTensor(bsize, 1).random_(0, args.vocab_size)
   with torch.no_grad():
     model.clear_states()
+    model.forward(inp)
     with tmr:
       for i in range(0, args.min_iter):
         model.forward(inp)
