@@ -35,9 +35,9 @@ class StatsRequestModule():
   def __init__(self, sampler):
     self.sampler = sampler
   def forward(self, request):
-    request.start_time = time.clock()
+    request.start_time = time.time()
   def backward(self, request):
-    request.end_time = time.clock()
+    request.end_time = time.time()
     request.elapsed = request.end_time - request.start_time
     request.requestinfo = req2str(self.sampler.sampler.model, self.sampler.requests)
 
@@ -46,4 +46,3 @@ class StatsRequest(sampling.SamplerRequest):
     self.chains = sampling.SamplerChains([StatsRequestModule(sampler)], [], [])
     self.key = None
     self.samples = []
-
