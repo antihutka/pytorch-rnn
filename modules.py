@@ -143,7 +143,7 @@ class BlockBadWords:
     bw = self.badwords
     if hasattr(sample, 'badwords'):
       bw = sample.badwords
-    if any((decoded.endswith(w.lower()) for w in self.badwords)):
+    if any(((w.lower() in decoded) for w in self.badwords)):
       fails = sample.bw_fails.get(decoded, 0) + 1
       todel = max(1, math.floor(fails/3))
       sample.bw_fails[decoded] = fails
