@@ -1,0 +1,18 @@
+[package]
+name = "vocabuilder"
+version = "0.1.0"
+authors = ["Michal Povinsky <antihutka@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2"
+memmap = "0"
+radix_trie = "0.1"
+#trie-rs = "0.1"
+
+[profile.dev]
+opt-level = 3
+
+[[bin]]
+name = "vocabuilder"
+path = "vocabuilder.rs"
