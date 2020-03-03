@@ -24,25 +24,32 @@ fn get_basic_tokens(input: &Mmap) -> HashSet<u8> {
 	return bt
 }
 
-fn print_token_counts(tokens : &Vec<Vec<u8>>, token_counts : &[usize]) {
-	let mut tc : Vec<(usize, &usize)> = token_counts.iter().enumerate().collect();
-	tc.sort_by(|a, b| b.1.cmp(a.1));
-	for (idx, cnt) in tc[0..25].iter() {
+fn sorted_token_counts(token_counts: &[usize]) -> Vec<(usize, usize)> {
+	let mut tc : Vec<(usize, usize)> = token_counts.iter().cloned().enumerate().collect();
+	tc.sort_by(|a, b| b.1.cmp(&a.1));
+	return tc
+}
+
+fn print_token_counts(tokens : &Vec<Vec<u8>>, sorted_tokens: &Vec<(usize,usize)>) {
+	for (idx, cnt) in sorted_tokens[0..25].iter() {
 		print!("{:?} -> {},  ", decode_utf8(&tokens[*idx]), cnt);
 	}
 	println!("");
 }
 
-fn print_pair_counts(tokens: &Vec<Vec<u8>>, pair_counts: &Vec<Vec<usize>>) {
+fn sorted_pair_counts(pair_counts: &Vec<Vec<usize>>) -> Vec<(usize, usize, usize)> {
 	let mut cnts = Vec::new();
 	for (idx1, iv) in pair_counts.iter().enumerate() {
 		for (idx2, cnt) in iv.iter().enumerate() {
-			cnts.push((idx1, idx2, cnt));
+			cnts.push((idx1, idx2, *cnt));
 		}
 	}
-	cnts.sort_by(|a, b| b.2.cmp(a.2));
-	//println!("{:?}", cnts);
-	for (idx1, idx2, cnt) in cnts[0..25].iter() {
+	cnts.sort_by(|a, b| b.2.cmp(&a.2));
+	return cnts;
+}
+
+fn print_pair_counts(tokens: &Vec<Vec<u8>>, sorted_pairs: &Vec<(usize, usize, usize)>) {
+	for (idx1, idx2, cnt) in sorted_pairs[0..25].iter() {
 		let mtoken = [&tokens[*idx1][..], &tokens[*idx2][..]].concat();
 		print!("{:?} -> {},  ", decode_utf8(&mtoken), cnt);
 	}
@@ -76,9 +83,11 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>) {
 		prev_token = v;
 	}
 	//println!("Token counts: {:?}", token_counts);
-	print_token_counts(&tokens, &token_counts);
+	let sorted_tokens = sorted_token_counts(&token_counts);
+	print_token_counts(&tokens, &sorted_tokens);
 	//println!("Pair counts: {:?}", pair_counts);
-	print_pair_counts(&tokens, &pair_counts);
+	let sorted_pairs = sorted_pair_counts(&pair_counts);
+	print_pair_counts(&tokens, &sorted_pairs);
 }
 
 fn main() {
