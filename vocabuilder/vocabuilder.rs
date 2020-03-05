@@ -9,7 +9,7 @@ use clap::{Arg, App};
 use memmap::MmapOptions;
 use memmap::Mmap;
 use std::fs::File;
-use std::cmp::max;
+use std::cmp::{min,max};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use radix_trie::Trie;
@@ -64,11 +64,7 @@ fn print_pair_counts(tokens: &Vec<Vec<u8>>, sorted_pairs: &Vec<(usize, usize, us
 	println!();
 }
 
-fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOptions) {
-	let mut tokens = Vec::new();
-	for x in basic_tokens {
-		tokens.push(vec![x]);
-	}
+fn count_tokens_pairs(input_data: &[u8], tokens: &Vec<Vec<u8>>) -> (usize, Vec<usize>, Vec<Vec<usize>>) {
 	let mut trie = Trie::<&[u8], usize>::new();
 	let mut max_token_len = 0;
 	for (idx, tok) in tokens.iter().enumerate() {
@@ -80,8 +76,9 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 	let mut token_counts = vec![0; tokens.len()];
 	let mut pair_counts = vec![vec![0; tokens.len()]; tokens.len()];
 	let mut prev_token = std::usize::MAX;
+	let mut total_tokens = 0;
 	while remain.len() > 0 {
-		let v = *trie.get_ancestor_value(&remain[..max_token_len]).unwrap();
+		let v = *trie.get_ancestor_value(&remain[..min(max_token_len,remain.len())]).unwrap();
 		let k = &tokens[v];
 		token_counts[v] += 1;
 		remain = &remain[k.len()..];
@@ -89,17 +86,35 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 			pair_counts[prev_token][v] += 1;
 		}
 		prev_token = v;
+		total_tokens += 1;
 	}
-	let sorted_tokens = sorted_token_counts(&token_counts);
-	print_token_counts(&tokens, &sorted_tokens);
-	let sorted_pairs = sorted_pair_counts(&pair_counts);
-	print_pair_counts(&tokens, &sorted_pairs);
-	if sorted_pairs[0].2 >= opts.min_merge {
-		let (t1, t2, tc) = sorted_pairs[0];
-		let merged = concat_tokens(&tokens, t1, t2);
-		println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
-	} else {
-		return;
+	return (total_tokens, token_counts, pair_counts)
+}
+
+fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOptions) {
+	let mut merged_tokens = HashSet::<Vec<u8>>::new();
+	loop {
+		let mut tokens = Vec::new();
+		for x in basic_tokens.iter() {
+			tokens.push(vec![*x]);
+		}
+		for x in merged_tokens.iter() {
+			tokens.push(x.clone());
+		}
+		let (total_tokens, token_counts, pair_counts) = count_tokens_pairs(input_data, &tokens);
+		println!("Tokenized {} bytes to {} tokens, {:.4} tpb", input_data.len(), total_tokens, input_data.len() as f64 / total_tokens as f64);
+		let sorted_tokens = sorted_token_counts(&token_counts);
+		print_token_counts(&tokens, &sorted_tokens);
+		let sorted_pairs = sorted_pair_counts(&pair_counts);
+		print_pair_counts(&tokens, &sorted_pairs);
+		if sorted_pairs[0].2 >= opts.min_merge {
+			let (t1, t2, tc) = sorted_pairs[0];
+			let merged = concat_tokens(&tokens, t1, t2);
+			println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
+			merged_tokens.insert(merged);
+		} else {
+			return;
+		}
 	}
 }
 
