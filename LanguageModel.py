@@ -2,7 +2,7 @@ import torch
 import json
 import os.path
 from gridgru import GRIDGRU
-from lstm import PTLSTM
+#from lstm import PTLSTM
 from simple_layers import RNNLinear
 
 def find_data_file(jpath):

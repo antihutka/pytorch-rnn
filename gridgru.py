@@ -59,12 +59,12 @@ class GRIDGRU(torch.nn.Module):
 
 def tanh_gradient(igrad, out, ograd):
   igrad.fill_(1)
-  igrad.addcmul_(-1, out, out)
+  igrad.addcmul_(out, out, value=-1)
   igrad.mul_(ograd)
 
 def sigmoid_gradient(igrad, out, ograd):
   igrad.fill_(1)
-  igrad.add_(-1, out)
+  igrad.add_(out, alpha=-1)
   igrad.mul_(out)
   igrad.mul_(ograd)
 
@@ -99,7 +99,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         if training:
           F.dropout(u, p=zoneout, training=True, inplace=True)
         u.mul_(1-zoneout)
-      next_ht.copy_(prev_ht).addcmul_(-1, u, prev_ht).addcmul_(u, hc)
+      next_ht.copy_(prev_ht).addcmul_(u, prev_ht, value=-1).addcmul_(u, hc)
       prev_ht = next_ht
     gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
     gatesd_nt[:, :2*D].sigmoid_()
@@ -114,7 +114,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     hcd_b.addmm_(bfr2, Wxd[:, 2*D:3*D])
 
     hcd_b.tanh_()
-    h=torch.addcmul(x, -1, ud_b.view(N, T, -1), x)
+    h=torch.addcmul(x, ud_b.view(N, T, -1), x, value=-1)
     h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
     ctx.H = H
     ctx.save_for_backward(weight, bias, ht, gatesd_nt, x, gates)
@@ -190,7 +190,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=grad_aud_tn)
         grad_aud_t.mul_(x_t)
         sigmoid_gradient(grad_ard_t, rd_t, grad_aud_t)
-        torch.add(hcd_t, -1, x_t, out=temp_bufferd_t)
+        torch.add(hcd_t, x_t, out=temp_bufferd_t, alpha=-1)
         sigmoid_gradient(grad_aud_t, ud_t, grad_h_t)
         grad_aud_t.mul_(temp_bufferd_t)
         torch.mm(grad_ad_tn, Whd.t(), out=grad_h0_tn)
@@ -216,11 +216,11 @@ class GRIDGRUFunction(torch.autograd.Function):
       grad_r = grad_au
       sigmoid_gradient(grad_ar, r, grad_r)
       
-      torch.add(hc, -1, prev_h, out=temp_buffer)
+      torch.add(hc, prev_h, out=temp_buffer, alpha=-1)
       sigmoid_gradient(grad_au, u, grad_next_h)
       grad_au.mul_(temp_buffer)
       
-      grad_next_h.addcmul_(-1, u, grad_next_h)
+      grad_next_h.addcmul_(u, grad_next_h, value=-1)
       grad_next_h.addmm_(grad_a[:, :2*H], Whtg.t())
       torch.mm(grad_a[:, 2*H:3*H], Whtc.t(), out=temp_buffer)
       temp_buffer.mul_(r)
@@ -239,7 +239,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         temp_buffer_t = temp_buffer_tb[:TBl]
         r_t = gates[:, t:tlast, H:2*H]
         
-        torch.addcmul(grad_h_tb, -1, gatesd[:, t:tlast, :D], grad_h_tb, out=grad_next_hd_t.transpose(0,1))
+        torch.addcmul(grad_h_tb, gatesd[:, t:tlast, :D], grad_h_tb, out=grad_next_hd_t.transpose(0,1), value=-1)
         grad_next_hd_t.view(TBl*N, D).addmm_(grad_ad_tb[:TBl].view(TBl*N, 3*D)[:, :2*D], Wxd[:, :2*D].t())
         grad_next_hd_t.add_(temp_bufferd_tb[:TBl])
         o = grad_x[t:tlast].view(TBl*N, D)
