@@ -19,6 +19,7 @@ parser.add_argument('--double-seq-on', default='')
 
 parser.add_argument('--num-epochs', default=50, type=int)
 
+parser.add_argument('--load-model')
 parser.add_argument('--layer-type', default='GRIDGRU')
 parser.add_argument('--num-layers', default=2, type=int)
 parser.add_argument('--embedding-dim', default=128, type=int)
@@ -41,17 +42,21 @@ logger = logging.getLogger('train')
 
 logger.info('Creating model')
 model = LanguageModel()
-model.load_tokendata(args.input_json)
-model.build_model(
-  layertype = args.layer_type,
-  dropout = args.dropout,
-  num_layers = args.num_layers,
-  D = args.embedding_dim,
-  H = args.hidden_dim,
-  zoneout = args.zoneout
-  )
+if args.load_model is None:
+  model.load_tokendata(args.input_json)
+  model.build_model(
+    layertype = args.layer_type,
+    dropout = args.dropout,
+    num_layers = args.num_layers,
+    D = args.embedding_dim,
+    H = args.hidden_dim,
+    zoneout = args.zoneout
+    )
+else:
+  model.load_json(args.load_model, clone_tensors=True)
 print(model.layers)
-logger.info('Created model with %d parameters' % sum((p.numel() for p in model.parameters())))
+
+logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
 crit = nn.CrossEntropyLoss()
@@ -102,7 +107,7 @@ for epoch in range(0, args.num_epochs):
       model(iter_data.preinputs.to(device).long())
     with timer_fwd:
       outputs = model(iter_data.inputs.to(device).long())
-      loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
+      loss = crit(outputs.contiguous().view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
     with timer_bck:
       loss.backward()
     if args.grad_clip > 0:

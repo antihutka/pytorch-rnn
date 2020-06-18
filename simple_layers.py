@@ -20,7 +20,12 @@ class RNNLinear(Module):
 #      print(self.output_dim)
       assert bias.size(0) == self.output_dim
       self.bias = Parameter(bias)
+
   def forward(self, x):
     N = x.size(0)
     T = x.size(1)
-    return torch.addmm(self.bias, x.view(N*T, -1), self.weight.t()).view(N, T, -1)
+    if x.is_contiguous():
+      return torch.addmm(self.bias, x.view(N*T, -1), self.weight.t()).view(N, T, -1)
+    else:
+      # assume that the tensor will be contiguous after transposing
+      return torch.addmm(self.bias, x.transpose(0,1).view(N*T, -1), self.weight.t()).view(T, N, -1).transpose(0,1)

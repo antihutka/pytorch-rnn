@@ -9,34 +9,37 @@ def find_data_file(jpath):
   (r, e) = os.path.splitext(jpath)
   return r + '.0'
 
-def tensor_from_tensordef(td, storage):
+def tensor_from_tensordef(td, storage, clone_tensors):
   t = torch.FloatTensor()
   offset = td['offset']
   tsize = torch.Size(td['size'])
   tstride = torch.Size(td['stride'])
   t.set_(storage, td['offset'], tsize, tstride)
-  return t
+  if clone_tensors:
+    return t.clone().detach()
+  else:
+    return t
 
-def layer_from_layerdef(layerdef, storage):
+def layer_from_layerdef(layerdef, storage, clone_tensors):
   ltype = layerdef['type']
   if ltype == 'LookupTable' or ltype == 'Embedding':
-    w = tensor_from_tensordef(layerdef['weight'], storage)
-    return torch.nn.Embedding.from_pretrained(embeddings=w), False
+    w = tensor_from_tensordef(layerdef['weight'], storage, clone_tensors)
+    return torch.nn.Embedding.from_pretrained(embeddings=w, freeze=False), False
   elif ltype == 'GRIDGRU':
-    w = tensor_from_tensordef(layerdef['weight'], storage)
-    b = tensor_from_tensordef(layerdef['bias'], storage)
+    w = tensor_from_tensordef(layerdef['weight'], storage, clone_tensors)
+    b = tensor_from_tensordef(layerdef['bias'], storage, clone_tensors)
     return GRIDGRU(layerdef['input_dim'], layerdef['hidden_dim'], zoneout = layerdef['zoneout_p'], zoneoutd = layerdef['zoneout_pd'], weight = w, bias = b), True
   elif ltype == 'PTLSTM':
-    w_ih = tensor_from_tensordef(layerdef['w_ih'], storage)
-    w_hh = tensor_from_tensordef(layerdef['w_hh'], storage)
-    b_ih = tensor_from_tensordef(layerdef['b_ih'], storage)
-    b_hh = tensor_from_tensordef(layerdef['b_hh'], storage)
+    w_ih = tensor_from_tensordef(layerdef['w_ih'], storage, clone_tensors)
+    w_hh = tensor_from_tensordef(layerdef['w_hh'], storage, clone_tensors)
+    b_ih = tensor_from_tensordef(layerdef['b_ih'], storage, clone_tensors)
+    b_hh = tensor_from_tensordef(layerdef['b_hh'], storage, clone_tensors)
     return PTLSTM(layerdef['input_dim'], layerdef['hidden_dim'], w_ih=w_ih, w_hh=w_hh, b_ih=b_ih, b_hh=b_hh), True
   elif ltype == 'Dropout':
     return torch.nn.Dropout(p = layerdef['p'], inplace = True), False
   elif ltype == 'Linear':
-    w = tensor_from_tensordef(layerdef['weight'], storage)
-    b = tensor_from_tensordef(layerdef['bias'], storage)
+    w = tensor_from_tensordef(layerdef['weight'], storage, clone_tensors)
+    b = tensor_from_tensordef(layerdef['bias'], storage, clone_tensors)
     return RNNLinear(weight = w, bias = b), False
   else:
     raise(Exception("unknown layer %s" % ltype))
@@ -55,7 +58,8 @@ def save_layer(layer, params):
           'hidden_dim' : layer.hidden_dim, 'input_dim' : layer.input_dim}
   elif ltype == 'Dropout':
     ld = {'p' : layer.p}
-  elif ltype == 'Linear':
+  elif ltype == 'Linear' or ltype == 'RNNLinear':
+    ltype = 'Linear'
     ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias]}
   else:
     raise Exception('Unknown layer type ' + ltype)
@@ -100,7 +104,7 @@ class LanguageModel(torch.nn.Module):
       j['idx_to_token'] = itt
     self.parse_tokendata(j)
 
-  def load_json(self, filename):
+  def load_json(self, filename, clone_tensors=False):
     with open(filename, "r") as f:
       j = json.load(f)
     self.parse_tokendata(j)
@@ -111,7 +115,7 @@ class LanguageModel(torch.nn.Module):
     #print("Loaded storage from %s with %d elements" % (datafile, storage.size()))
     for idx, layerdef in enumerate(j['layers']):
       #print("layer %d -> %s" % (idx, layerdef))
-      layer, has_state = layer_from_layerdef(layerdef, storage)
+      layer, has_state = layer_from_layerdef(layerdef, storage, clone_tensors)
       self.layers += [layer]
       self.add_module("%d-%s" % (idx, layerdef['type']), layer)
       if has_state:
