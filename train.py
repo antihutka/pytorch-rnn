@@ -54,6 +54,7 @@ if args.load_model is None:
     )
 else:
   model.load_json(args.load_model, clone_tensors=True)
+  model.replace_tokendata(args.input_json)
 print(model.layers)
 
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))

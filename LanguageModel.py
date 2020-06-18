@@ -77,6 +77,8 @@ class LanguageModel(torch.nn.Module):
 
   def parse_tokendata(self, j):
     self.longest_token = 0
+    self.idx_to_token = {}
+    self.token_to_idx = {}
     for idx, token in enumerate(j['idx_to_token']):
       if isinstance(token, list):
         token_e = bytes(token)
@@ -103,6 +105,41 @@ class LanguageModel(torch.nn.Module):
       itt = [itt[n] for n in range(0, len(itt))]
       j['idx_to_token'] = itt
     self.parse_tokendata(j)
+
+  def replace_tokendata(self, filename):
+    old_itt = self.idx_to_token
+    old_tti = self.token_to_idx
+    self.load_tokendata(filename)
+    itt = self.idx_to_token
+    tti = self.token_to_idx
+    #print('Old tokens: ', old_itt)
+    #print('New tokens: ', itt)
+    old_embed = self.layers[0]
+    old_linear = self.layers[-1]
+    new_embed = torch.nn.Embedding(len(itt), old_embed.weight.size(1))
+    new_linear = torch.nn.Linear(old_linear.weight.size(1), len(itt))
+    for token in itt.values():
+      if token in old_tti:
+        old_idx = old_tti[token]
+        new_idx = tti[token]
+        #print('Token exists: %s %d->%d' % (token, old_idx, new_idx))
+        with torch.no_grad():
+          new_embed.weight[new_idx] = old_embed.weight[old_idx]
+          new_linear.weight[new_idx] = old_linear.weight[old_idx]
+      #else:
+        #print('New token: %s' % (token,))
+    #print('Old layers: ', old_embed, old_linear)
+    #print('New layers: ', new_embed, new_linear)
+    self.layers[0] = new_embed
+    self.layers[-1] = new_linear
+    for k,v in self._modules.items():
+      if v == old_embed:
+        name_embed = k
+      if v == old_linear:
+        name_linear = k
+    self._modules[name_embed] = new_embed
+    self._modules[name_linear] = new_linear
+    pass
 
   def load_json(self, filename, clone_tensors=False):
     with open(filename, "r") as f:
