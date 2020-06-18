@@ -1,7 +1,7 @@
 import torch
 import math
 import torch.nn.init as init
-from torch.nn import _VF
+from torch import _VF
 from torch.nn.parameter import Parameter
 
 class PTLSTM(torch.nn.Module):
