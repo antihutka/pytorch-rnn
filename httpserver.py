@@ -36,6 +36,15 @@ if stortype == 'memory':
 elif stortype == 'sqlite':
   import sqlitestore
   stor = sqlitestore.SQLiteStateStore(model, config.get('store', 'dbpath'), default_token = default_ending_token)
+elif stortype == 'mysql':
+  import mysqlstore
+  stor = mysqlstore.MySQLStore(model,
+      config.get('store', 'dbhost', fallback='localhost'),
+      config.get('store', 'dbname'),
+      config.get('store', 'dbuser', fallback=''),
+      config.get('store', 'dbpass', fallback=''),
+      default_token = default_ending_token,
+      modelid = config.getint('store', 'modelid'))
 else:
   raise Exception('Unknown store type', stortype)
 
@@ -97,6 +106,8 @@ async def put(request):
   if force_commit:
     rq.force_commit = True
   await run_request(rq)
+  if force_commit and stortype == 'mysql':
+    stor.commit()
   resp = {'result': 'ok'}
   return web.Response(body=encode(resp), content_type='application/json')
 
