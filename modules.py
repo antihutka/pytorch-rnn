@@ -36,7 +36,7 @@ class SimpleSampling:
   def backward(self, request):
     [sample] = request.samples
     request.last_token = sample.sampled_sequence[-1]
-    request.final_state = sample.states[-1]
+    request.final_state = {k:v.clone() for k,v in sample.states[-1].items()}
     request.sampled_sequence = sample.sampled_sequence
   def __str__(self):
     return "SimpleSampling()"
