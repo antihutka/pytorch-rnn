@@ -241,8 +241,9 @@ class LanguageModel(torch.nn.Module):
         x = layer.forward(x)
     return x
 
-  def forward_with_states(self, x, h0_split):
+  def forward_with_states(self, x, h0_split, out_device = None):
     batchsize = x.size(0)
+    x = x.to(self.layers[0].weight.device)
     hn = [{} for i in range(batchsize)]
     for (layeridx, layer) in enumerate(self.layers):
       if layer in self.stateful_layers:
@@ -251,10 +252,14 @@ class LanguageModel(torch.nn.Module):
           if h0_split[batchidx] is not None:
             h0[batchidx].copy_(h0_split[batchidx][layeridx])
         x, new_state = layer.forward(x, h0)
+        if out_device:
+          new_state=new_state.to(out_device)
         for batchidx in range(batchsize):
           hn[batchidx][layeridx] = new_state[batchidx]
       else:
         x = layer.forward(x)
+    if out_device:
+      x = x.to(out_device)
     return (x, hn)
 
   def get_state(self, batch_idx = None):

@@ -48,6 +48,12 @@ elif stortype == 'mysql':
 else:
   raise Exception('Unknown store type', stortype)
 
+device = 'cpu'
+if len(sys.argv) > 2:
+  device = sys.argv[2]
+
+model.to(device)
+
 put_chain = sampling.default_put_chains(stor)
 
 def encode(data):

@@ -119,7 +119,7 @@ class Sampler():
     nn_states, nn_lengths = util.ljoinl([s.model_input_state for s in samples])
     nn_states = {k:v for k,v in enumerate(nn_states)}
     with torch.no_grad():
-      nn_outputs, nn_outstates = self.model.forward_with_states(nn_inputs.unsqueeze(1), nn_states)
+      nn_outputs, nn_outstates = self.model.forward_with_states(nn_inputs.unsqueeze(1), nn_states, out_device='cpu')
     nn_outputs_split = util.lsplitl(nn_outputs, nn_lengths)
     nn_outstates_split = util.lsplitl(nn_outstates, nn_lengths)
     for i,s in enumerate(samples):
