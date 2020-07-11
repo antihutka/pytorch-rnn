@@ -14,6 +14,7 @@ parser.add_argument('--zoneout', default=0, type=float)
 parser.add_argument('--dropout', default=0, type=float)
 parser.add_argument('--vocab-size', default=200, type=int)
 
+parser.add_argument('--device', default='cpu')
 parser.add_argument('--min-batch', default=1, type=int)
 parser.add_argument('--max-batch', default=32, type=int)
 parser.add_argument('--min-iter', default=10)
@@ -33,11 +34,12 @@ model.build_model(
   H = args.hidden_dim,
   zoneout = args.zoneout
   )
+model.to(args.device)
 print('Created model with %d parameters' % sum((p.numel() for p in model.parameters())))
 
 def do_benchmark_for(bsize):
   tmr = Timer()
-  inp = torch.LongTensor(bsize, 1).random_(0, args.vocab_size)
+  inp = torch.LongTensor(bsize, 1).random_(0, args.vocab_size).to(args.device)
   with torch.no_grad():
     model.clear_states()
     model.forward(inp)
