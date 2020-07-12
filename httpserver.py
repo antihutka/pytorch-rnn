@@ -107,8 +107,11 @@ async def put(request):
   key = args.get('key', '')
   text = args['text']
   force_commit = args.get('force_commit', False)
+  append_newline = args.get('append_newline', True)
+  if (append_newline):
+    text += '\n'
   logger.info("put %s %d" % (key,len(text)))
-  rq = sampler.sampler.make_put_request(put_chain, model.encode_string(text + '\n'), key=key)
+  rq = sampler.sampler.make_put_request(put_chain, model.encode_string(text), key=key)
   if force_commit:
     rq.force_commit = True
   await run_request(rq)

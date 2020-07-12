@@ -11,6 +11,7 @@ parser.add_argument('--output-path', default='outputs/out-%03d')
 parser.add_argument('--backend-url', default='http://localhost:7880/')
 parser.add_argument('--key', default='sampling:%d')
 parser.add_argument('--start-text')
+parser.add_argument('--line-start', default='')
 args = parser.parse_args()
 
 loop = asyncio.get_event_loop()
@@ -35,11 +36,15 @@ async def run_task(session, idx):
       r = await response.json()
 
   while(current_size < args.total_bytes):
+    if args.line_start:
+      prq = {'key' : args.key % idx, 'text' : args.line_start, 'append_newline' : False}
+      async with session.post(urlput, json=prq) as response:
+        r = await response.json()
     async with session.post(urlget, json=rq) as response:
       assert response.status == 200
       r = await response.json()
     o = r['text'] + '\n'
-    print(o, file=outfile, end='')
+    print(args.line_start + o, file=outfile, end='')
     current_size += len(o.encode())
   print('Task %s finished' % key)
 
