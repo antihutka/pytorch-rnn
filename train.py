@@ -131,7 +131,7 @@ for epoch in range(0, args.num_epochs):
   timer_tot.reset()
   timer_fwd.reset()
   with torch.no_grad():
-    totalloss = torch.Tensor([0])
+    totalloss = 0
     for iter_data in valdata.data:
       timer_tot.start()
       if iter_data.preinputs is not None:
