@@ -27,7 +27,7 @@ class DataLoader:
     self.seq_length = seq_length
     self.splits = {}
     with h5py.File(filename, 'r') as f:
-      for spl in ['test', 'val', 'train']:
+      for spl in f:
         self.splits[spl] = torch.from_numpy(f[spl][:])
         logger.info('Loaded %d items from %s' % (self.splits[spl].size(0), spl))
     if all((s.min()>0 for s in self.splits.values())):
