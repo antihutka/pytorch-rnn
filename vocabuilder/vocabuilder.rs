@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate memmap;
 extern crate radix_trie;
+extern crate regex;
 
 mod utfdec;
 
@@ -10,9 +11,9 @@ use memmap::MmapOptions;
 use memmap::Mmap;
 use std::fs::File;
 use std::cmp::{min,max};
-use std::collections::HashMap;
 use std::collections::HashSet;
 use radix_trie::Trie;
+use regex::bytes::Regex;
 
 struct VocabuilderOptions {
 	min_merge: usize,
@@ -64,6 +65,20 @@ fn print_pair_counts(tokens: &Vec<Vec<u8>>, sorted_pairs: &Vec<(usize, usize, us
 	println!();
 }
 
+fn filter_token_pairs(tokens: &Vec<Vec<u8>>, pairs_in: Vec<(usize, usize, usize)>) -> Vec<(usize, usize, usize)> {
+	let re = Regex::new(r"\n|[^A-Za-z0-9_][A-Za-z0-9_]").unwrap();
+	let mut pairs_out = Vec::new();
+	for (t1, t2, cnt) in pairs_in {
+		let merged = concat_tokens(tokens, t1, t2);
+		if re.is_match(&merged) {
+			//println!("Not allowing token {:?}", decode_utf8(&merged));
+			continue;
+		}
+		pairs_out.push((t1,t2,cnt));
+	}
+	return pairs_out;
+}
+
 fn count_tokens_pairs(input_data: &[u8], tokens: &Vec<Vec<u8>>) -> (usize, Vec<usize>, Vec<Vec<usize>>) {
 	let mut trie = Trie::<&[u8], usize>::new();
 	let mut max_token_len = 0;
@@ -105,13 +120,18 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 		println!("Tokenized {} bytes to {} tokens, {:.4} tpb", input_data.len(), total_tokens, input_data.len() as f64 / total_tokens as f64);
 		let sorted_tokens = sorted_token_counts(&token_counts);
 		print_token_counts(&tokens, &sorted_tokens);
-		let sorted_pairs = sorted_pair_counts(&pair_counts);
+		let sorted_pairs = filter_token_pairs(&tokens, sorted_pair_counts(&pair_counts));
 		print_pair_counts(&tokens, &sorted_pairs);
 		if sorted_pairs[0].2 >= opts.min_merge {
-			let (t1, t2, tc) = sorted_pairs[0];
-			let merged = concat_tokens(&tokens, t1, t2);
-			println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
-			merged_tokens.insert(merged);
+			for sp in sorted_pairs.iter().take(10) {
+				let (t1, t2, tc) = *sp;
+				if tc < opts.min_merge {
+					break;
+				}
+				let merged = concat_tokens(&tokens, t1, t2);
+				println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
+				merged_tokens.insert(merged);
+			}
 		} else {
 			return;
 		}
