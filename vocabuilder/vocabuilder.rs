@@ -17,6 +17,7 @@ use regex::bytes::Regex;
 
 struct VocabuilderOptions {
 	min_merge: usize,
+	min_keep: usize,
 }
 
 fn get_basic_tokens(input: &Mmap) -> HashSet<u8> {
@@ -122,6 +123,8 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 		print_token_counts(&tokens, &sorted_tokens);
 		let sorted_pairs = filter_token_pairs(&tokens, sorted_pair_counts(&pair_counts));
 		print_pair_counts(&tokens, &sorted_pairs);
+		
+		let mut changed = false;
 		if sorted_pairs[0].2 >= opts.min_merge {
 			for sp in sorted_pairs.iter().take(10) {
 				let (t1, t2, tc) = *sp;
@@ -132,7 +135,16 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 				println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
 				merged_tokens.insert(merged);
 			}
-		} else {
+			changed = true;
+		}
+		for st in sorted_tokens.iter() {
+			if st.1 <= opts.min_keep && merged_tokens.contains(&tokens[st.0]) {
+				println!("Unmerging token {:?} ({})", decode_utf8(&tokens[st.0]), st.1);
+				merged_tokens.remove(&tokens[st.0]);
+				changed = true;
+			}
+		}
+		if !changed {
 			return;
 		}
 	}
@@ -144,10 +156,12 @@ fn main() {
 		.version("0.0.1")
 		.arg(Arg::with_name("input").short("i").long("input").takes_value(true))
 		.arg(Arg::with_name("min_merge").long("min-merge").takes_value(true))
+		.arg(Arg::with_name("min_keep").long("min-keep").takes_value(true))
 		.get_matches();
 	let input_file = matches.value_of("input").unwrap();
 	let min_merge = matches.value_of("min_merge").unwrap_or("1000").parse().unwrap();
-	let vopts = VocabuilderOptions{min_merge};
+	let min_keep = matches.value_of("min_keep").unwrap_or("500").parse().unwrap();
+	let vopts = VocabuilderOptions{min_merge, min_keep};
 	println!("input file {}", input_file);
 	let file = File::open(input_file).unwrap();
 	let mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
