@@ -14,6 +14,7 @@ use std::cmp::{min,max};
 use std::collections::HashSet;
 use radix_trie::Trie;
 use regex::bytes::Regex;
+use std::time::Instant;
 
 struct VocabuilderOptions {
 	min_merge: usize,
@@ -110,6 +111,7 @@ fn count_tokens_pairs(input_data: &[u8], tokens: &Vec<Vec<u8>>) -> (usize, Vec<u
 fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOptions) {
 	let mut merged_tokens = HashSet::<Vec<u8>>::new();
 	loop {
+		let iteration_start = Instant::now();
 		let mut tokens = Vec::new();
 		for x in basic_tokens.iter() {
 			tokens.push(vec![*x]);
@@ -118,7 +120,8 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 			tokens.push(x.clone());
 		}
 		let (total_tokens, token_counts, pair_counts) = count_tokens_pairs(input_data, &tokens);
-		println!("Tokenized {} bytes to {} tokens, {:.4} tpb", input_data.len(), total_tokens, input_data.len() as f64 / total_tokens as f64);
+		let iteration_time = iteration_start.elapsed().as_secs();
+		println!("Tokenized {} bytes to {} tokens, {:.4} tpb {} tokens {}s", input_data.len(), total_tokens, input_data.len() as f64 / total_tokens as f64, tokens.len(), iteration_time);
 		let sorted_tokens = sorted_token_counts(&token_counts);
 		print_token_counts(&tokens, &sorted_tokens);
 		let sorted_pairs = filter_token_pairs(&tokens, sorted_pair_counts(&pair_counts));
@@ -132,7 +135,7 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 					break;
 				}
 				let merged = concat_tokens(&tokens, t1, t2);
-				println!("Merging top pair {:?} + {:?} -> {:?}", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged));
+				println!("Merging top pair {:?} + {:?} -> {:?} ({})", decode_utf8(&tokens[t1]), decode_utf8(&tokens[t2]), decode_utf8(&merged), tc);
 				merged_tokens.insert(merged);
 			}
 			changed = true;
