@@ -4,7 +4,9 @@ extern crate radix_trie;
 extern crate regex;
 
 mod utfdec;
+mod output;
 
+use output::write_json;
 use utfdec::decode_utf8;
 use clap::{Arg, App};
 use memmap::MmapOptions;
@@ -108,7 +110,7 @@ fn count_tokens_pairs(input_data: &[u8], tokens: &Vec<Vec<u8>>) -> (usize, Vec<u
 	return (total_tokens, token_counts, pair_counts)
 }
 
-fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOptions) {
+fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOptions) -> Vec<Vec<u8>> {
 	let mut merged_tokens = HashSet::<Vec<u8>>::new();
 	loop {
 		let iteration_start = Instant::now();
@@ -148,7 +150,7 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 			}
 		}
 		if !changed {
-			return;
+			return tokens;
 		}
 	}
 }
@@ -160,10 +162,12 @@ fn main() {
 		.arg(Arg::with_name("input").short("i").long("input").takes_value(true))
 		.arg(Arg::with_name("min_merge").long("min-merge").takes_value(true))
 		.arg(Arg::with_name("min_keep").long("min-keep").takes_value(true))
+		.arg(Arg::with_name("output_json").long("output-json").takes_value(true))
 		.get_matches();
 	let input_file = matches.value_of("input").unwrap();
 	let min_merge = matches.value_of("min_merge").unwrap_or("1000").parse().unwrap();
 	let min_keep = matches.value_of("min_keep").unwrap_or("500").parse().unwrap();
+	let output_json = matches.value_of("output_json");
 	let vopts = VocabuilderOptions{min_merge, min_keep};
 	println!("input file {}", input_file);
 	let file = File::open(input_file).unwrap();
@@ -173,5 +177,8 @@ fn main() {
 	println!("scanning basic tokens");
 	let basic_tokens = get_basic_tokens(&mmap);
 	println!("done, {} tokens found", basic_tokens.len());
-	do_bpe(&mmap[0..input_length-1], basic_tokens, &vopts);
+	let out_tokens = do_bpe(&mmap[0..input_length-1], basic_tokens, &vopts);
+	if let Some(jsonpath) = output_json {
+		write_json(out_tokens, jsonpath);
+	}
 }
