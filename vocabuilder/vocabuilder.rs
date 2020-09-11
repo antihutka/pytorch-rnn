@@ -156,7 +156,6 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 }
 
 fn main() {
-	println!("Hello, world");
 	let matches = App::new("Vocabuilder")
 		.version("0.0.1")
 		.arg(Arg::with_name("input").short("i").long("input").takes_value(true))
