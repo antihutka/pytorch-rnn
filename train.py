@@ -15,6 +15,7 @@ parser.add_argument('--input-json', default='data/tiny-shakespeare.json')
 parser.add_argument('--batch-size', default=64, type=int)
 parser.add_argument('--seq-length', default=64, type=int)
 parser.add_argument('--no-offset', default=False, action='store_true')
+parser.add_argument('--use-masks', default=False, action='store_true')
 parser.add_argument('--double-seq-on', default='')
 
 parser.add_argument('--num-epochs', default=50, type=int)
@@ -60,7 +61,7 @@ print(model.layers)
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
-crit = nn.CrossEntropyLoss()
+crit = nn.CrossEntropyLoss(reduction = 'none' if args.use_masks else 'mean')
 
 logger.info('Loading data')
 
@@ -91,7 +92,7 @@ for epoch in range(0, args.num_epochs):
     args.batch_size //= 2
     loader.set_seq_batch(args.seq_length, args.batch_size)
     logger.info('Doubling sequence length to seq_length=%d batch_size=%d' % (args.seq_length, args.batch_size))
-  traindata = loader.make_batches('train', 0 if (args.no_offset or epoch % 2 == 0) else (args.seq_length // 2))
+  traindata = loader.make_batches('train', 0 if (args.no_offset or epoch % 2 == 0) else (args.seq_length // 2), use_masks = args.use_masks)
   timer_pre.reset()
   timer_fwd.reset()
   timer_bck.reset()
@@ -109,6 +110,11 @@ for epoch in range(0, args.num_epochs):
     with timer_fwd:
       outputs = model(iter_data.inputs.to(device).long())
       loss = crit(outputs.contiguous().view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
+      if args.use_masks:
+        masks = iter_data.masks.float().to(device).view(N*T)
+        masksum = iter_data.masks.sum()
+        loss_unmasked = loss.sum() / loss.numel()
+        loss = (loss * masks).sum() / masksum
     with timer_bck:
       loss.backward()
     if args.grad_clip > 0:
@@ -121,13 +127,17 @@ for epoch in range(0, args.num_epochs):
     tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, float(loss))
     if iter_data.i % args.print_every == 0:
       assert not torch.isnan(loss)
-      print('ep %d/%d iter %d/%d loss=%.4f, %.4f lr=%.2e Times: %.2f %.2f %.2f %.2f (%4.1f tps)' %
-        (epoch, args.num_epochs, iter_data.i, traindata.batch_count, loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'], timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average()))
+      s = 'ep %d/%d iter %d/%d ' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count)
+      s += 'loss=%.4f, %.4f lr=%.2e ' % (loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'])
+      if args.use_masks:
+        s += 'uloss %.4f masked %d/%d ' % (loss_unmasked, iter_data.masks.sum(), iter_data.masks.numel())
+      s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
+      print(s)
   print('average loss: %.4f' % (totalloss.item()/traindata.batch_count))
 
   model.clear_states()
   model.eval()
-  valdata = loader.make_batches('val', shuffle=False)
+  valdata = loader.make_batches('val', shuffle=False, use_masks = args.use_masks)
   timer_tot.reset()
   timer_fwd.reset()
   with torch.no_grad():
@@ -139,6 +149,10 @@ for epoch in range(0, args.num_epochs):
       with timer_fwd:
         outputs = model(iter_data.inputs.to(device).long())
       loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
+      if args.use_masks:
+        masks = iter_data.masks.float().to(device).view(N*T)
+        masksum = iter_data.masks.sum()
+        loss = (loss * masks).sum() / masksum
       totalloss += loss
       timer_tot.stop()
       if iter_data.i % args.print_every == 0:

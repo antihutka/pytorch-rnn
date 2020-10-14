@@ -10,10 +10,11 @@ def split_tensor(tensor, cnt, length):
   return tensor
 
 class IterationData:
-  def __init__(self, i, preinputs, inputs, outputs):
+  def __init__(self, i, preinputs, inputs, outputs, masks):
     self.preinputs = preinputs
     self.inputs = inputs
     self.outputs = outputs
+    self.masks = masks
     self.i = i
 
 class EpochData:
@@ -35,7 +36,7 @@ class DataLoader:
       for t in self.splits.values():
         t.add_(-1)
 
-  def make_batches(self, splitname = 'train', offset = 0, shuffle = True):
+  def make_batches(self, splitname = 'train', offset = 0, shuffle = True, use_masks = False):
     data = self.splits[splitname]
     inputs = data[offset:-2]
     outputs = data[offset+1:-1]
@@ -48,6 +49,10 @@ class DataLoader:
       permutation = split_tensor(torch.arange(0, self.batch_size*numbat), self.batch_size, numbat).t()
     inputs_split = split_tensor(inputs, numseq, self.seq_length)
     outputs_split = split_tensor(outputs, numseq, self.seq_length)
+    if use_masks:
+      maskdata = self.splits[splitname + '_mask']
+      masks = maskdata[offset+1:-1]
+      masks_split = split_tensor(masks, numseq, self.seq_length)
     def gen():
       for i in range(0, numbat):
         bperm = permutation[i]
@@ -58,7 +63,11 @@ class DataLoader:
           i_preinputs = None
         i_inputs = torch.index_select(inputs_split, 0, bperm_next)
         i_outputs = torch.index_select(outputs_split, 0, bperm_next)
-        yield IterationData(i, i_preinputs, i_inputs, i_outputs)
+        if use_masks:
+          i_masks = torch.index_select(masks_split, 0, bperm_next)
+        else:
+          i_masks = None
+        yield IterationData(i, i_preinputs, i_inputs, i_outputs, i_masks)
     return EpochData(gen(), numbat)
 
   def set_seq_batch(self, seq_length, batch_size):
