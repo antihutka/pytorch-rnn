@@ -35,6 +35,7 @@ parser.add_argument('--grad-clip', default=5, type=float)
 
 parser.add_argument('--checkpoint-name', default='models/output')
 parser.add_argument('--device', default='cpu')
+parser.add_argument('--layerdevices', default=[], nargs='+')
 parser.add_argument('--print-every', default=1, type=float)
 args = parser.parse_args()
 
@@ -72,7 +73,14 @@ loader = DataLoader(
   )
 
 device = torch.device(args.device)
-model.to(device)
+if args.layerdevices:
+  for ld in args.layerdevices:
+    start, end, device = ld.split(',')
+    for layerid in range(int(start), int(end)+1):
+      print("Moving layer %d-%s to device %s" % (layerid, model.layers[layerid], device))
+      model.layers[layerid].to(device)
+else:
+  model.to(device)
 
 double_seq_on = [int(x) for x in args.double_seq_on.split(',')] if args.double_seq_on else []
 
@@ -106,9 +114,9 @@ for epoch in range(0, args.num_epochs):
     optimizer.zero_grad()
     model.clear_states()
     with torch.no_grad(), timer_pre:
-      model(iter_data.preinputs.to(device).long())
+      model(iter_data.preinputs.long())
     with timer_fwd:
-      outputs = model(iter_data.inputs.to(device).long())
+      outputs = model(iter_data.inputs.long())
       loss = crit(outputs.contiguous().view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
       if args.use_masks:
         masks = iter_data.masks.float().to(device).view(N*T)
@@ -145,9 +153,9 @@ for epoch in range(0, args.num_epochs):
     for iter_data in valdata.data:
       timer_tot.start()
       if iter_data.preinputs is not None:
-        model(iter_data.preinputs.to(device).long())
+        model(iter_data.preinputs.long())
       with timer_fwd:
-        outputs = model(iter_data.inputs.to(device).long())
+        outputs = model(iter_data.inputs.long())
       loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
       if args.use_masks:
         masks = iter_data.masks.float().to(device).view(N*T)
