@@ -4,6 +4,7 @@ import os.path
 from gridgru import GRIDGRU
 from lstm import PTLSTM
 from simple_layers import RNNLinear
+from extensions import ZMDropout
 
 def find_data_file(jpath):
   (r, e) = os.path.splitext(jpath)
@@ -200,7 +201,7 @@ class LanguageModel(torch.nn.Module):
       else:
         raise Exception("Unknown layer type")
       if dropout > 0:
-        self.layers.append(torch.nn.Dropout(p=dropout, inplace=True))
+        self.layers.append(ZMDropout(p=dropout, inplace=True))
     self.layers.append(torch.nn.Linear(current_size, len(self.idx_to_token)))
     for li, lay in enumerate(self.layers):
       ln = "%d-%s" % (li, type(lay).__name__)
