@@ -5,14 +5,18 @@
 
 #define TPB 256
 #define GETNTDSIZE(x) int N=x.size(0), T=x.size(1), D=x.size(2)
+#define ISCUDA(x) TORCH_CHECK(x.is_cuda())
+#define ISCUDA2(x,y) TORCH_CHECK(x.is_cuda() && y.is_cuda())
+#define ISCUDA3(x,y,z) TORCH_CHECK(x.is_cuda() && y.is_cuda() && z.is_cuda())
+#define SAMESIZE(x,y) TORCH_CHECK(x.size(0)==y.size(0) && x.size(1)==y.size(1) && x.size(2) == y.size(2))
+#define CALCBT const dim3 threads(TPB), blocks(N, T, (D+TPB-1)/TPB)
+#define CALCNTD int n=blockIdx.x, t=blockIdx.y, d=TPB*blockIdx.z+threadIdx.x
 
 template <typename scalar_t> __global__ void zmdrop_forward_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> input,
   torch::PackedTensorAccessor32<uint8_t,3,torch::RestrictPtrTraits> noise,
   int D, float mult) {
-  int n = blockIdx.x;
-  int t = blockIdx.y;
-  int d = TPB * blockIdx.z + threadIdx.x;
+  CALCNTD;
   if (d < D) {
     scalar_t nv = input[n][t][d];
     nv *= mult;
@@ -25,16 +29,10 @@ template <typename scalar_t> __global__ void zmdrop_forward_kernel(
 }
 
 torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise, float mult) {
-  TORCH_CHECK(input.is_cuda());
-  TORCH_CHECK(noise.is_cuda());
-  int N = input.size(0);
-  int T = input.size(1);
-  int D = input.size(2);
-  TORCH_CHECK(noise.size(0) == N);
-  TORCH_CHECK(noise.size(1) == T);
-  TORCH_CHECK(noise.size(2) == D);
-  const dim3 threads(TPB);
-  const dim3 blocks(N, T, (D+TPB-1)/TPB);
+  ISCUDA2(input, noise);
+  GETNTDSIZE(input);
+  SAMESIZE(input, noise);
+  CALCBT;
   AT_DISPATCH_FLOATING_TYPES(input.type(), "zmdrop_forward_cuda", ([&] { 
     zmdrop_forward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -48,12 +46,9 @@ template <typename scalar_t> __global__ void zmdrop_backward_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> input,
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> grad,
   int D, float mult) {
-  int n = blockIdx.x;
-  int t = blockIdx.y;
-  int d = TPB * blockIdx.z + threadIdx.x;
+  CALCNTD;
   if (d < D) {
     scalar_t g = grad[n][t][d];
-//    g *= mult;
     if (input[n][t][d] == 0)
       g = 0;
     else
@@ -63,16 +58,10 @@ template <typename scalar_t> __global__ void zmdrop_backward_kernel(
 }
 
 torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, float mult) {
-  TORCH_CHECK(input.is_cuda());
-  TORCH_CHECK(grad.is_cuda());
-  int N = input.size(0);
-  int T = input.size(1);
-  int D = input.size(2);
-  TORCH_CHECK(grad.size(0) == N);
-  TORCH_CHECK(grad.size(1) == T);
-  TORCH_CHECK(grad.size(2) == D);
-  const dim3 threads(TPB);
-  const dim3 blocks(N, T, (D+TPB-1)/TPB);
+  ISCUDA2(input, grad)
+  GETNTDSIZE(input);
+  SAMESIZE(input, grad);
+  CALCBT;
   AT_DISPATCH_FLOATING_TYPES(input.type(), "zmdrop_backward_cuda", ([&] { 
     zmdrop_backward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -87,9 +76,7 @@ template <typename scalar_t> __global__ void tanh_gradient_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> out,
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd,
   int D) {
-  int n = blockIdx.x;
-  int t = blockIdx.y;
-  int d = TPB * blockIdx.z + threadIdx.x;
+  CALCNTD;
   if (d < D) {
     scalar_t out2 = out[n][t][d];
     igrad[n][t][d] = ograd[n][t][d] * (1 - out2);
@@ -97,12 +84,11 @@ template <typename scalar_t> __global__ void tanh_gradient_kernel(
 }
 
 torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd) {
-  TORCH_CHECK(igrad.is_cuda());
-  TORCH_CHECK(out.is_cuda());
-  TORCH_CHECK(ograd.is_cuda());
+  ISCUDA3(igrad, out, ograd)
   GETNTDSIZE(igrad);
-  const dim3 threads(TPB);
-  const dim3 blocks(N, T, (D+TPB-1)/TPB);
+  SAMESIZE(igrad, out);
+  SAMESIZE(igrad, ograd);
+  CALCBT;
   AT_DISPATCH_FLOATING_TYPES(igrad.type(), "tanh_gradient_cuda", ([&] {
     tanh_gradient_kernel<scalar_t><<<blocks, threads>>>(
       igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
