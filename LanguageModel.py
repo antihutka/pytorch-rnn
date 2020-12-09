@@ -57,7 +57,7 @@ def save_layer(layer, params):
     ld = {'w_ih' : params[layer.w_ih], 'w_hh' : params[layer.w_hh],
           'b_ih' : params[layer.b_ih], 'b_hh' : params[layer.b_hh],
           'hidden_dim' : layer.hidden_dim, 'input_dim' : layer.input_dim}
-  elif ltype == 'Dropout':
+  elif ltype == 'Dropout' or ltype == 'ZMDropout':
     ld = {'p' : layer.p}
   elif ltype == 'Linear' or ltype == 'RNNLinear':
     ltype = 'Linear'

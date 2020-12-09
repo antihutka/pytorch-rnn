@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-torch::Tensor zmdrop_forward(torch::Tensor input, torch::Tensor noise) {
+torch::Tensor zmdrop_forward(torch::Tensor input, torch::Tensor noise, float mult) {
   auto input_a = input.accessor<float, 3>();
   auto noise_a = noise.accessor<uint8_t, 3>();
   TORCH_CHECK(!input.is_cuda());
@@ -20,6 +20,8 @@ torch::Tensor zmdrop_forward(torch::Tensor input, torch::Tensor noise) {
           input_a[n][t][d] = 0;
         } else if (input_a[n][t][d] == 0) {
           input_a[n][t][d] = 1e-45;
+        } else {
+          input_a[n][t][d] *= mult;
         }
       }
     }
@@ -27,7 +29,7 @@ torch::Tensor zmdrop_forward(torch::Tensor input, torch::Tensor noise) {
   return input;
 }
 
-torch::Tensor zmdrop_backward(torch::Tensor input, torch::Tensor grad) {
+torch::Tensor zmdrop_backward(torch::Tensor input, torch::Tensor grad, float mult) {
   auto input_a = input.accessor<float, 3>();
   auto grad_a = grad.accessor<float, 3>();
   TORCH_CHECK(!input.is_cuda());
@@ -43,6 +45,8 @@ torch::Tensor zmdrop_backward(torch::Tensor input, torch::Tensor grad) {
       for (int d = 0; d < D; d++) {
         if (input_a[n][t][d] == 0) {
           grad_a[n][t][d] = 0;
+        } else {
+          grad_a[n][t][d] *= mult;
         }
       }
     }

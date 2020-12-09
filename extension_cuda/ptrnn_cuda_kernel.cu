@@ -8,12 +8,13 @@
 template <typename scalar_t> __global__ void zmdrop_forward_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> input,
   torch::PackedTensorAccessor32<uint8_t,3,torch::RestrictPtrTraits> noise,
-  int D) {
+  int D, float mult) {
   int n = blockIdx.x;
   int t = blockIdx.y;
   int d = TPB * blockIdx.z + threadIdx.x;
   if (d < D) {
     scalar_t nv = input[n][t][d];
+    nv *= mult;
     if (noise[n][t][d] == 0)
       nv = 0;
     else if (nv == 0)
@@ -22,7 +23,7 @@ template <typename scalar_t> __global__ void zmdrop_forward_kernel(
   }
 }
 
-torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise) {
+torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise, float mult) {
   TORCH_CHECK(input.is_cuda());
   TORCH_CHECK(noise.is_cuda());
   int N = input.size(0);
@@ -37,7 +38,7 @@ torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise) {
     zmdrop_forward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       noise.packed_accessor32<uint8_t, 3, torch::RestrictPtrTraits>(),
-      D);
+      D, mult);
   }));
   return input;
 }
@@ -45,19 +46,22 @@ torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise) {
 template <typename scalar_t> __global__ void zmdrop_backward_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> input,
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> grad,
-  int D) {
+  int D, float mult) {
   int n = blockIdx.x;
   int t = blockIdx.y;
   int d = TPB * blockIdx.z + threadIdx.x;
   if (d < D) {
     scalar_t g = grad[n][t][d];
+//    g *= mult;
     if (input[n][t][d] == 0)
       g = 0;
+    else
+      g *= mult;
     grad[n][t][d] = g;
   }
 }
 
-torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad) {
+torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, float mult) {
   TORCH_CHECK(input.is_cuda());
   TORCH_CHECK(grad.is_cuda());
   int N = input.size(0);
@@ -72,7 +76,7 @@ torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad) {
     zmdrop_backward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       grad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
-      D);
+      D, mult);
   }));
   return grad;
 }
