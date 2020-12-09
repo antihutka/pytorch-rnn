@@ -39,3 +39,22 @@ class ZMDropout(torch.nn.Module):
     if self.training:
       ZMDropoutFunction.apply(input, self.p)
     return input
+
+def tanh_gradient(igrad, out, ograd):
+  if igrad.is_cuda:
+    if igrad.dim() == 2:
+      igrad = igrad.unsqueeze(0)
+      out = out.unsqueeze(0)
+      ograd = ograd.unsqueeze(0)
+    assert(igrad.dim() == 3)
+    ptrnn_cuda.tanh_gradient_cuda(igrad, out, ograd)
+  else:
+    igrad.fill_(1)
+    igrad.addcmul_(out, out, value=-1)
+    igrad.mul_(ograd)
+
+def sigmoid_gradient(igrad, out, ograd):
+  igrad.fill_(1)
+  igrad.add_(out, alpha=-1)
+  igrad.mul_(out)
+  igrad.mul_(ograd)

@@ -1,6 +1,7 @@
 import torch
 import math
 from torch.nn.parameter import Parameter
+from extensions import sigmoid_gradient, tanh_gradient
 import torch.nn.functional as F
 import torch.nn.init as init
 
@@ -56,17 +57,6 @@ class GRIDGRU(torch.nn.Module):
       assert state.size(0) == N and state.size(1) == H
       prev_ht = state
     return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training)
-
-def tanh_gradient(igrad, out, ograd):
-  igrad.fill_(1)
-  igrad.addcmul_(out, out, value=-1)
-  igrad.mul_(ograd)
-
-def sigmoid_gradient(igrad, out, ograd):
-  igrad.fill_(1)
-  igrad.add_(out, alpha=-1)
-  igrad.mul_(out)
-  igrad.mul_(ograd)
 
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod

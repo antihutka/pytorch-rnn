@@ -4,6 +4,7 @@
 #include <iostream>
 
 #define TPB 256
+#define GETNTDSIZE(x) int N=x.size(0), T=x.size(1), D=x.size(2)
 
 template <typename scalar_t> __global__ void zmdrop_forward_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> input,
@@ -79,4 +80,35 @@ torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, floa
       D, mult);
   }));
   return grad;
+}
+
+template <typename scalar_t> __global__ void tanh_gradient_kernel(
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> igrad,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> out,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd,
+  int D) {
+  int n = blockIdx.x;
+  int t = blockIdx.y;
+  int d = TPB * blockIdx.z + threadIdx.x;
+  if (d < D) {
+    scalar_t out2 = out[n][t][d];
+    igrad[n][t][d] = ograd[n][t][d] * (1 - out2);
+  }
+}
+
+torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd) {
+  TORCH_CHECK(igrad.is_cuda());
+  TORCH_CHECK(out.is_cuda());
+  TORCH_CHECK(ograd.is_cuda());
+  GETNTDSIZE(igrad);
+  const dim3 threads(TPB);
+  const dim3 blocks(N, T, (D+TPB-1)/TPB);
+  AT_DISPATCH_FLOATING_TYPES(igrad.type(), "tanh_gradient_cuda", ([&] {
+    tanh_gradient_kernel<scalar_t><<<blocks, threads>>>(
+      igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      ograd.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      D);
+  }));
+  return igrad;
 }
