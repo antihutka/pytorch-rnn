@@ -36,6 +36,7 @@ parser.add_argument('--grad-clip', default=5, type=float)
 parser.add_argument('--checkpoint-name', default='models/output')
 parser.add_argument('--device', default='cpu')
 parser.add_argument('--layerdevices', default=[], nargs='+')
+parser.add_argument('--swapoutlayers', default=[], type=int, nargs='+')
 parser.add_argument('--print-every', default=1, type=float)
 args = parser.parse_args()
 
@@ -81,6 +82,10 @@ if args.layerdevices:
       model.layers[layerid].to(device)
 else:
   model.to(device)
+
+for swl in args.swapoutlayers:
+  print("Enabling swapout for layer %d" % swl)
+  model.layers[swl].set_swapout(True)
 
 double_seq_on = [int(x) for x in args.double_seq_on.split(',')] if args.double_seq_on else []
 

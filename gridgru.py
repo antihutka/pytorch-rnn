@@ -20,6 +20,7 @@ class GRIDGRU(torch.nn.Module):
     self.hidden_dim = hidden_dim
     self.zoneout = zoneout
     self.zoneoutd = zoneoutd
+    self.swapout = False
     if weight is not None and bias is not None:
       assert weight.dim() == 2
       assert weight.size(0) == input_dim + hidden_dim
@@ -33,6 +34,9 @@ class GRIDGRU(torch.nn.Module):
       self.weight = Parameter(torch.Tensor(input_dim + hidden_dim, 3 * (input_dim + hidden_dim)))
       self.bias = Parameter(torch.Tensor(3 * (input_dim + hidden_dim)))
       self.reset()
+
+  def set_swapout(self, s):
+    self.swapout = s
 
   def reset(self, std = None):
     if not std:
@@ -56,11 +60,15 @@ class GRIDGRU(torch.nn.Module):
       assert state.dim() == 2
       assert state.size(0) == N and state.size(1) == H
       prev_ht = state
-    return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training)
+    use_swapout = self.swapout and torch.is_grad_enabled()
+    return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training, use_swapout)
+
+def swapout_tensor(t):
+  return torch.empty_like(t, device='cpu', pin_memory=True).copy_(t, non_blocking=True)
 
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod
-  def forward(ctx, x, prev_ht, weight, bias, H, D, zoneout, zoneoutd, training):
+  def forward(ctx, x, prev_ht, weight, bias, H, D, zoneout, zoneoutd, training, swapout):
     ctx.first_ht = prev_ht
     N = x.size(0)
     T = x.size(1)
@@ -107,12 +115,19 @@ class GRIDGRUFunction(torch.autograd.Function):
     h=torch.addcmul(x, ud_b.view(N, T, -1), x, value=-1)
     h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
     ctx.H = H
+    ctx.swapout = swapout
+    if swapout:
+      gates = swapout_tensor(gates)
+      gatesd_nt = swapout_tensor(gatesd_nt)
     ctx.save_for_backward(weight, bias, ht, gatesd_nt, x, gates)
     return (h, next_ht.clone())
 
   @staticmethod
   def backward(ctx, grad_output, grad_lastht):
     (weight, bias, ht, gatesd_nt, x, gates) = ctx.saved_tensors
+    if ctx.swapout:
+      gates = gates.to(weight.device, non_blocking=True)
+      gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True)
     TB = 8
     N = grad_output.size(0)
     T = grad_output.size(1)
@@ -247,7 +262,7 @@ class GRIDGRUFunction(torch.autograd.Function):
           torch.mul(ctx.first_ht, r_t[:, 0], out=temp_buffer_t[0])
         grad_Whtc.addbmm_(temp_buffer_t.transpose(1,2), grad_a_tb[:TBl, :, 2*H:3*H])
     grad_first_ht = grad_next_h.clone()
-    return (grad_x.transpose(0,1), grad_first_ht, grad_weight, grad_bias, None, None, None, None, None)
+    return (grad_x.transpose(0,1), grad_first_ht, grad_weight, grad_bias, None, None, None, None, None, None)
 
 
 
