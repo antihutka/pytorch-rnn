@@ -36,7 +36,7 @@ def layer_from_layerdef(layerdef, storage, clone_tensors):
     b_ih = tensor_from_tensordef(layerdef['b_ih'], storage, clone_tensors)
     b_hh = tensor_from_tensordef(layerdef['b_hh'], storage, clone_tensors)
     return PTLSTM(layerdef['input_dim'], layerdef['hidden_dim'], w_ih=w_ih, w_hh=w_hh, b_ih=b_ih, b_hh=b_hh), True
-  elif ltype == 'Dropout':
+  elif ltype == 'Dropout' or ltype == 'ZMDropout':
     return torch.nn.Dropout(p = layerdef['p'], inplace = True), False
   elif ltype == 'Linear':
     w = tensor_from_tensordef(layerdef['weight'], storage, clone_tensors)
