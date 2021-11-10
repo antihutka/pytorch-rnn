@@ -44,20 +44,23 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger('train')
 
 logger.info('Creating model')
-model = LanguageModel()
-if args.load_model is None:
-  model.load_tokendata(args.input_json)
-  model.build_model(
-    layertype = args.layer_type,
-    dropout = args.dropout,
-    num_layers = args.num_layers,
-    D = args.embedding_dim,
-    H = args.hidden_dim,
-    zoneout = args.zoneout
-    )
-else:
-  model.load_json(args.load_model, clone_tensors=True)
-  model.replace_tokendata(args.input_json)
+def get_model():
+  m = LanguageModel()
+  if args.load_model is None:
+    m.load_tokendata(args.input_json)
+    m.build_model(
+      layertype = args.layer_type,
+      dropout = args.dropout,
+      num_layers = args.num_layers,
+      D = args.embedding_dim,
+      H = args.hidden_dim,
+      zoneout = args.zoneout
+      )
+  else:
+    m.load_json(args.load_model, clone_tensors=True)
+    m.replace_tokendata(args.input_json)
+  return m
+model = get_model()
 print(model.layers)
 
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
