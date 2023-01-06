@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `state_storage` (
 '''
 
 class MySQLStore:
-  def __init__(self, model, dbhost, dbname, dbuser, dbpass, default_token=0, commit_every = 256, max_cache = 1024, modelid=0):
+  def __init__(self, model, dbhost, dbname, dbuser, dbpass, default_token=0, commit_every = 256, max_cache = 1024, modelid=0, max_days=None):
     self.model = model
     self.default_token = default_token
     self.dbhost = dbhost
@@ -27,6 +27,7 @@ class MySQLStore:
     self.dbpass = dbpass
     self.commit_every = commit_every
     self.modelid = modelid
+    self.max_days = max_days
     self.max_cache = max_cache
     self.cached = {}
     self.dirty = set()
@@ -102,6 +103,10 @@ class MySQLStore:
         try:
           cur = con.cursor()
           cur.executemany("REPLACE INTO state_storage (`modelid`, `key`, `state`, `last_token`) VALUES (%s, %s, %s, %s)", dirty_states)
+          if self.max_days:
+            logger.info("Deleting states older than %d days", self.max_days)
+            cur.execute("DELETE FROM state_storage WHERE TIMESTAMPDIFF(DAY, `modified_on`, CURRENT_TIMESTAMP()) > %s AND `key` <> '_default'", (self.max_days,))
+            logger.info("Deleted %d states", cur.rowcount)
           con.commit()
           self.writes = 0
           self.dirty.clear()

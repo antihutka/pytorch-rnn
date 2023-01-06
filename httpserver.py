@@ -44,7 +44,8 @@ elif stortype == 'mysql':
       config.get('store', 'dbuser', fallback=''),
       config.get('store', 'dbpass', fallback=''),
       default_token = default_ending_token,
-      modelid = config.getint('store', 'modelid'))
+      modelid = config.getint('store', 'modelid'),
+      max_days = config.getint('store', 'max_days', fallback=None))
 else:
   raise Exception('Unknown store type', stortype)
 
