@@ -92,7 +92,7 @@ async def stats(request):
   text += 'Pending samples:\n'
   for (k,v) in locks.items():
     if (v._locked):
-      text += "%s => %d\n" % (k, len(v._waiters))
+      text += "%s => %d\n" % (k, 0 if v._waiters is None else len(v._waiters))
   try:
     rq = statsrequest.StatsRequest(sampler)
     await run_request_nl(rq)
