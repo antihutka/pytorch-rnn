@@ -2,6 +2,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <iostream>
+#include <ATen/DeviceGuard.h>
 
 #define TPB 256
 #define GETNTDSIZE(x) int N=x.size(0), T=x.size(1), D=x.size(2)
@@ -29,6 +30,7 @@ template <typename scalar_t> __global__ void zmdrop_forward_kernel(
 }
 
 torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise, float mult) {
+  const c10::OptionalDeviceGuard device_guard(device_of(input));
   ISCUDA2(input, noise);
   GETNTDSIZE(input);
   SAMESIZE(input, noise);
@@ -58,6 +60,7 @@ template <typename scalar_t> __global__ void zmdrop_backward_kernel(
 }
 
 torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, float mult) {
+  const c10::OptionalDeviceGuard device_guard(device_of(input));
   ISCUDA2(input, grad)
   GETNTDSIZE(input);
   SAMESIZE(input, grad);
