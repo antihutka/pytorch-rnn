@@ -9,17 +9,19 @@ class ZMDropoutFunction(torch.autograd.Function):
     noise = input.new_empty(input.size(), dtype=torch.uint8)
     noise.bernoulli_(1-dropout_value)
     if input.is_cuda:
+      assert(input.device == noise.device)
       output = ptrnn_cuda.zmdrop_forward_cuda(input, noise, 1/(1-dropout_value))
     else:
       output = ptrnn_cpp.zmdrop_forward(input, noise, 1/(1-dropout_value))
     ctx.dropout_value = dropout_value
-    ctx.save_for_backward(output)
+    ctx.save_for_backward(input)
     return output
 
   @staticmethod
   def backward(ctx, out_grad):
     (output,) = ctx.saved_variables
     if out_grad.is_cuda:
+      assert(output.device == out_grad.device)
       in_grad = ptrnn_cuda.zmdrop_backward_cuda(output, out_grad, 1/(1-ctx.dropout_value))
     else:
       in_grad = ptrnn_cpp.zmdrop_backward(output, out_grad, 1/(1-ctx.dropout_value))
@@ -37,7 +39,7 @@ class ZMDropout(torch.nn.Module):
     self.p = p
   def forward(self, input):
     if self.training:
-      ZMDropoutFunction.apply(input, self.p)
+      return ZMDropoutFunction.apply(input, self.p)
     return input
 
 def tanh_gradient(igrad, out, ograd):
