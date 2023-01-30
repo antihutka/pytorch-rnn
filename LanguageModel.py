@@ -173,8 +173,9 @@ class LanguageModel(torch.nn.Module):
     with open(filename + '.json', 'w') as f:
       json.dump({'layers':layers, 'idx_to_token' : self.jsonify_tokens()}, f)
     filestorage = torch.FloatStorage.from_file(filename + '.0', shared=True, size=filesize)
+    filetensor = torch.FloatTensor(filestorage)
     for (stor,off) in storages.items():
-      filestorage[off : off+stor.size()].copy_(stor)
+      filetensor[off : off+stor.size()].copy_(torch.FloatTensor(stor.cpu()))
 
   def jsonify_tokens(self):
     def t(token):
