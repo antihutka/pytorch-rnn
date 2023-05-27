@@ -55,6 +55,21 @@ def tanh_gradient(igrad, out, ograd):
     igrad.addcmul_(out, out, value=-1)
     igrad.mul_(ograd)
 
+def tanh_gradient_mul(igrad, out, ograd1, ograd2):
+  if igrad.dim() == 2:
+    igrad = igrad.unsqueeze(0)
+    out = out.unsqueeze(0)
+    ograd1 = ograd1.unsqueeze(0)
+    ograd2 = ograd2.unsqueeze(0)
+  if igrad.is_cuda:
+    ptrnn_cuda.tanh_gradient_mul_cuda(igrad, out, ograd1, ograd2)
+  else:
+    #implement CPU kernel too
+    igrad.fill_(1)
+    igrad.addcmul_(out, out, value=-1)
+    igrad.mul_(ograd1)
+    igrad.mul_(ograd2)
+
 def sigmoid_gradient(igrad, out, ograd):
   if igrad.is_cuda:
     if igrad.dim() == 2:

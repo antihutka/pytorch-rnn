@@ -9,6 +9,7 @@
 #define ISCUDA(x) TORCH_CHECK(x.is_cuda())
 #define ISCUDA2(x,y) TORCH_CHECK(x.is_cuda() && y.is_cuda())
 #define ISCUDA3(x,y,z) TORCH_CHECK(x.is_cuda() && y.is_cuda() && z.is_cuda())
+#define ISCUDA4(x, y, z, w) TORCH_CHECK(x.is_cuda() && y.is_cuda() && z.is_cuda() && w.is_cuda())
 #define SAMESIZE(x,y) TORCH_CHECK(x.size(0)==y.size(0) && x.size(1)==y.size(1) && x.size(2) == y.size(2))
 #define CALCBT const dim3 threads(TPB), blocks(N, T, (D+TPB-1)/TPB)
 #define CALCNTD int n=blockIdx.x, t=blockIdx.y, d=TPB*blockIdx.z+threadIdx.x
@@ -101,6 +102,38 @@ torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::
   }));
   return igrad;
 }
+
+template <typename scalar_t> __global__ void tanh_gradient_mul_kernel(
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> igrad,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> out,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd1,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd2,
+  int D) {
+  CALCNTD;
+  if (d < D) {
+    scalar_t o = out[n][t][d];
+    igrad[n][t][d] = ograd1[n][t][d] * ograd2[n][t][d] * (1 - o*o);
+  }
+}
+
+torch::Tensor tanh_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2) {
+  ISCUDA4(igrad, out, ograd1, ograd2)
+  GETNTDSIZE(igrad);
+  SAMESIZE(igrad, out);
+  SAMESIZE(igrad, ograd1);
+  SAMESIZE(igrad, ograd2);
+  CALCBT;
+  AT_DISPATCH_FLOATING_TYPES(igrad.type(), "tanh_gradient_cuda", ([&] {
+    tanh_gradient_mul_kernel<scalar_t><<<blocks, threads>>>(
+      igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      ograd1.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      ograd2.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      D);
+  }));
+  return igrad;
+}
+
 
 template <typename scalar_t> __global__ void sigmoid_gradient_kernel(
   torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> igrad,

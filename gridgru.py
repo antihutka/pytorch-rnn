@@ -1,7 +1,7 @@
 import torch
 import math
 from torch.nn.parameter import Parameter
-from extensions import sigmoid_gradient, tanh_gradient
+from extensions import sigmoid_gradient, tanh_gradient, tanh_gradient_mul
 import torch.nn.functional as F
 import torch.nn.init as init
 
@@ -190,8 +190,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         x_t = x[:, tfirst:t+1]
         grad_h_t = grad_output[:, tfirst:t+1]
         
-        torch.mul(grad_h_t, ud_t, out=grad_aud_t)
-        tanh_gradient(grad_ahcd_t, hcd_t, grad_aud_t)
+        tanh_gradient_mul(grad_ahcd_t, hcd_t, grad_h_t, ud_t)
         torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=grad_aud_tn)
         grad_aud_t.mul_(x_t)
         sigmoid_gradient(grad_ard_t, rd_t, grad_aud_t)
@@ -213,9 +212,7 @@ class GRIDGRUFunction(torch.autograd.Function):
       hc = gates[:, t, 2*H:3*H]
       
       grad_next_h.add_(grad_h0)
-      torch.mul(grad_next_h, u, out=grad_au)
-      grad_hc = grad_au
-      tanh_gradient(grad_ahc, hc, grad_hc)
+      tanh_gradient_mul(grad_ahc, hc, grad_next_h, u)
       torch.mm(grad_ahc, Whtc.t(), out=grad_au)
       grad_au.mul_(prev_h)
       grad_r = grad_au
