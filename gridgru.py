@@ -1,7 +1,7 @@
 import torch
 import math
 from torch.nn.parameter import Parameter
-from extensions import sigmoid_gradient, tanh_gradient, tanh_gradient_mul
+from extensions import sigmoid_gradient, tanh_gradient, tanh_gradient_mul, sigmoid_gradient_mul
 import torch.nn.functional as F
 import torch.nn.init as init
 
@@ -128,7 +128,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     if ctx.swapout:
       gates = gates.to(weight.device, non_blocking=True)
       gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True)
-    TB = 8
+    TB = 16
     N = grad_output.size(0)
     T = grad_output.size(1)
     D = grad_output.size(2)
@@ -192,11 +192,9 @@ class GRIDGRUFunction(torch.autograd.Function):
         
         tanh_gradient_mul(grad_ahcd_t, hcd_t, grad_h_t, ud_t)
         torch.mm(grad_ahcd_tn, Wxd[:, 2*D:3*D].t(), out=grad_aud_tn)
-        grad_aud_t.mul_(x_t)
-        sigmoid_gradient(grad_ard_t, rd_t, grad_aud_t)
+        sigmoid_gradient_mul(grad_ard_t, rd_t, grad_aud_t, x_t)
         torch.add(hcd_t, x_t, out=temp_bufferd_t, alpha=-1)
-        sigmoid_gradient(grad_aud_t, ud_t, grad_h_t)
-        grad_aud_t.mul_(temp_bufferd_t)
+        sigmoid_gradient_mul(grad_aud_t, ud_t, grad_h_t, temp_bufferd_t)
         torch.mm(grad_ad_tn, Whd.t(), out=grad_h0_tn)
         grad_Whd.addbmm_(ht[:, tfirst:t+1].transpose(0,1).transpose(1,2), grad_ad_tb[:TBl])
         grad_Wxd[:, :2*D].addbmm_(x_t.transpose(0,1).transpose(1,2), grad_ad_tb[:TBl, :, :2*D])
@@ -214,13 +212,11 @@ class GRIDGRUFunction(torch.autograd.Function):
       grad_next_h.add_(grad_h0)
       tanh_gradient_mul(grad_ahc, hc, grad_next_h, u)
       torch.mm(grad_ahc, Whtc.t(), out=grad_au)
-      grad_au.mul_(prev_h)
       grad_r = grad_au
-      sigmoid_gradient(grad_ar, r, grad_r)
+      sigmoid_gradient_mul(grad_ar, r, grad_r, prev_h)
       
       torch.add(hc, prev_h, out=temp_buffer, alpha=-1)
-      sigmoid_gradient(grad_au, u, grad_next_h)
-      grad_au.mul_(temp_buffer)
+      sigmoid_gradient_mul(grad_au, u, grad_next_h, temp_buffer)
       
       grad_next_h.addcmul_(u, grad_next_h, value=-1)
       grad_next_h.addmm_(grad_a[:, :2*H], Whtg.t())

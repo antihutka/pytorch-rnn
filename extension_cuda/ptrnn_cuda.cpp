@@ -6,6 +6,7 @@ torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, floa
 torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd);
 torch::Tensor tanh_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2);
 torch::Tensor sigmoid_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd);
+torch::Tensor sigmoid_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2);
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -14,4 +15,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("tanh_gradient_cuda", &tanh_gradient_cuda, "tanh gradient CUDA");
   m.def("tanh_gradient_mul_cuda", &tanh_gradient_mul_cuda, "tanh gradient CUDA with ograd mul");
   m.def("sigmoid_gradient_cuda", &sigmoid_gradient_cuda, "sigmoid gradient CUDA");
+  m.def("sigmoid_gradient_mul_cuda", &sigmoid_gradient_mul_cuda, "sigmoid gradient CUDA with ograd mul");
 }

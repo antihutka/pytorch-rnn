@@ -162,3 +162,34 @@ torch::Tensor sigmoid_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torc
   }));
   return igrad;
 }
+
+template <typename scalar_t> __global__ void sigmoid_gradient_mul_kernel(
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> igrad,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> out,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd1,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> ograd2,
+  int D) {
+  CALCNTD;
+  if (d < D) {
+    scalar_t o = out[n][t][d];
+    igrad[n][t][d] = ograd1[n][t][d] * ograd2[n][t][d] * o * (1-o);
+  }
+}
+
+torch::Tensor sigmoid_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2) {
+  ISCUDA4(igrad, out, ograd1, ograd2)
+  GETNTDSIZE(igrad);
+  SAMESIZE(igrad, out);
+  SAMESIZE(igrad, ograd1);
+  SAMESIZE(igrad, ograd2);
+  CALCBT;
+  AT_DISPATCH_FLOATING_TYPES(igrad.type(), "sigmoid_gradient_mul_cuda", ([&] {
+    sigmoid_gradient_mul_kernel<scalar_t><<<blocks, threads>>>(
+      igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      ograd1.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      ograd2.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      D);
+  }));
+  return igrad;
+}
