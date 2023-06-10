@@ -22,3 +22,22 @@ pub fn write_json(tokens: Vec<Vec<u8>>, outpath: &str) {
 	let cont = jobj.dump().into_bytes();
 	file.write_all(&cont).unwrap();
 }
+
+pub fn read_json(outpath: &str) -> Vec<Vec<u8>> {
+	let cont = std::fs::read_to_string(outpath).unwrap();
+	let parsed = json::parse(&cont).unwrap();
+	let mut tokens = Vec::new();
+	for token in parsed["idx_to_token"].members() {
+		if token.is_string() {
+			let t = token.as_str().unwrap();
+			tokens.push(t.as_bytes().to_owned());
+		} else {
+			let mut tbytes = Vec::new();
+			for byte in token.members() {
+				tbytes.push(byte.as_u8().unwrap());
+			}
+			tokens.push(tbytes)
+		}
+	}
+	return tokens;
+}
