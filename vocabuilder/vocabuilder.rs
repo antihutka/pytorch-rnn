@@ -131,7 +131,7 @@ fn do_bpe(input_data: &[u8], basic_tokens: HashSet<u8>, opts: &VocabuilderOption
 		
 		let mut changed = false;
 		if sorted_pairs[0].2 >= opts.min_merge {
-			for sp in sorted_pairs.iter().take(10) {
+			for sp in sorted_pairs.iter().take(50) {
 				let (t1, t2, tc) = *sp;
 				if tc < opts.min_merge {
 					break;
