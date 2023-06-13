@@ -70,7 +70,7 @@ fn print_pair_counts(tokens: &Vec<Vec<u8>>, sorted_pairs: &Vec<(usize, usize, us
 }
 
 fn filter_token_pairs(tokens: &Vec<Vec<u8>>, pairs_in: Vec<(usize, usize, usize)>) -> Vec<(usize, usize, usize)> {
-	let re = Regex::new(r"\n|[^A-Za-z0-9_][A-Za-z0-9_]").unwrap();
+	let re = Regex::new(r"\n|[^A-Za-z0-9_'][A-Za-z0-9_']").unwrap();
 	let mut pairs_out = Vec::new();
 	for (t1, t2, cnt) in pairs_in {
 		let merged = concat_tokens(tokens, t1, t2);
