@@ -139,10 +139,11 @@ for epoch in range(0, args.num_epochs):
         par.grad.clamp_(-args.grad_clip, args.grad_clip)
     optimizer.step()
     timer_tot.stop()
-    totalloss += loss.detach()
-    avg_tloss.add_value(loss.item())
-    tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, float(loss))
     assert not torch.isnan(loss)
+    loss = loss.item()
+    totalloss += loss
+    avg_tloss.add_value(loss)
+    tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, loss)
     if iter_data.i % args.print_every == 0:
       s = 'ep %d/%d iter %d/%d ' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count)
       s += 'loss=%.4f, %.4f lr=%.2e ' % (loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'])
