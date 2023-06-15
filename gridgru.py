@@ -80,8 +80,8 @@ class GRIDGRUFunction(torch.autograd.Function):
     gates = gates_nt.view(N, T, -1)
     gatesd_nt = bias_nt[:, 3*H:].clone()
     gatesd_nt[:, :2*D].addmm_(x_nt, Wxd[:, :2*D])
-    #gatesd = gatesd_nt.view(N, T, -1)
     ht = x.new_zeros(N, T, H)
+    bfr1 = None
     for t in range(0, T):
       next_ht = ht[:, t]
       cur_gates = gates[:, t]
@@ -89,7 +89,7 @@ class GRIDGRUFunction(torch.autograd.Function):
       cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
       u = cur_gates[:, :H]
       r = cur_gates[:, H:2*H]
-      bfr1 = torch.mul(r, prev_ht)
+      bfr1 = torch.mul(r, prev_ht, out=bfr1)
       hc = cur_gates[:, 2*H:3*H]
       hc.addmm_(bfr1, Whtc)
       hc.tanh_()
