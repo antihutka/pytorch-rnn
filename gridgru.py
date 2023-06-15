@@ -1,7 +1,7 @@
 import torch
 import math
 from torch.nn.parameter import Parameter
-from extensions import sigmoid_gradient, tanh_gradient, tanh_gradient_mul, sigmoid_gradient_mul
+from extensions import sigmoid_gradient_mul, tanh_gradient_mul, u_gate
 import torch.nn.functional as F
 import torch.nn.init as init
 
@@ -97,7 +97,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         if training:
           F.dropout(u, p=zoneout, training=True, inplace=True)
         u.mul_(1-zoneout)
-      next_ht.copy_(prev_ht).addcmul_(u, prev_ht, value=-1).addcmul_(u, hc)
+      u_gate(next_ht, prev_ht, u, hc)
       prev_ht = next_ht
     gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
     gatesd_nt[:, :2*D].sigmoid_()
@@ -112,8 +112,9 @@ class GRIDGRUFunction(torch.autograd.Function):
     hcd_b.addmm_(bfr2, Wxd[:, 2*D:3*D])
 
     hcd_b.tanh_()
-    h=torch.addcmul(x, ud_b.view(N, T, -1), x, value=-1)
-    h.addcmul_(ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
+    h = torch.zeros_like(x)
+    u_gate(h, x, ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
+
     ctx.H = H
     ctx.swapout = swapout
     if swapout:

@@ -42,60 +42,52 @@ class ZMDropout(torch.nn.Module):
       return ZMDropoutFunction.apply(input, self.p)
     return input
 
-def tanh_gradient(igrad, out, ograd):
-  if igrad.is_cuda:
-    if igrad.dim() == 2:
-      igrad = igrad.unsqueeze(0)
-      out = out.unsqueeze(0)
-      ograd = ograd.unsqueeze(0)
-    assert(igrad.dim() == 3)
-    ptrnn_cuda.tanh_gradient_cuda(igrad, out, ograd)
+def u2dt(t):
+  if t.dim() == 2:
+    return t.unsqueeze(0)
   else:
-    igrad.fill_(1)
-    igrad.addcmul_(out, out, value=-1)
-    igrad.mul_(ograd)
+    return t
 
+def dim23(f):
+  def r(*args, **kwargs):
+    args3d = [u2dt(t) for t in args]
+    kwargs3d = {k:u2dt(v) for (k,v) in kwargs.items()}
+    return f(*args3d, *kwargs3d)
+  return r
+
+@dim23
 def tanh_gradient_mul(igrad, out, ograd1, ograd2):
-  if igrad.dim() == 2:
-    igrad = igrad.unsqueeze(0)
-    out = out.unsqueeze(0)
-    ograd1 = ograd1.unsqueeze(0)
-    ograd2 = ograd2.unsqueeze(0)
+  assert(igrad.dim() == 3)
   if igrad.is_cuda:
     ptrnn_cuda.tanh_gradient_mul_cuda(igrad, out, ograd1, ograd2)
   else:
-    #implement CPU kernel too
-    igrad.fill_(1)
-    igrad.addcmul_(out, out, value=-1)
-    igrad.mul_(ograd1)
-    igrad.mul_(ograd2)
+    return ptrnn_cpp.tanh_gradient_mul(igrad, out, ograd1, ograd2)
 
-def sigmoid_gradient(igrad, out, ograd):
+@dim23
+def tanh_gradient(igrad, out, ograd):
   if igrad.is_cuda:
-    if igrad.dim() == 2:
-      igrad = igrad.unsqueeze(0)
-      out = out.unsqueeze(0)
-      ograd = ograd.unsqueeze(0)
     assert(igrad.dim() == 3)
-    ptrnn_cuda.sigmoid_gradient_cuda(igrad, out, ograd)
+    ptrnn_cuda.tanh_gradient_cuda(igrad, out, ograd)
   else:
-    igrad.fill_(1)
-    igrad.add_(out, alpha=-1)
-    igrad.mul_(out)
-    igrad.mul_(ograd)
+    return ptrnn_cpp.tanh_gradient(igrad, out, ograd)
 
+@dim23
 def sigmoid_gradient_mul(igrad, out, ograd1, ograd2):
   if igrad.is_cuda:
-    if igrad.dim() == 2:
-      igrad = igrad.unsqueeze(0)
-      out = out.unsqueeze(0)
-      ograd1 = ograd1.unsqueeze(0)
-      ograd2 = ograd2.unsqueeze(0)
-    assert(igrad.dim() == 3)
     ptrnn_cuda.sigmoid_gradient_mul_cuda(igrad, out, ograd1, ograd2)
   else:
-    igrad.fill_(1)
-    igrad.add_(out, alpha=-1)
-    igrad.mul_(out)
-    igrad.mul_(ograd1)
-    igrad.mul_(ograd2)
+    return ptrnn_cpp.sigmoid_gradient_mul(igrad, out, ograd1, ograd2)
+
+@dim23
+def sigmoid_gradient(igrad, out, ograd):
+  if igrad.is_cuda:
+    ptrnn_cuda.sigmoid_gradient_cuda(igrad, out, ograd)
+  else:
+    return ptrnn_cpp.sigmoid_gradient(igrad, out, ograd)
+
+@dim23
+def u_gate(next_ht, prev_ht, u, hc):
+  if u.is_cuda:
+    return ptrnn_cuda.u_gate_cuda(next_ht, prev_ht, u, hc)
+  else:
+    return ptrnn_cpp.u_gate(next_ht, prev_ht, u, hc)

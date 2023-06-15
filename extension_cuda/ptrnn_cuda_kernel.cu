@@ -193,3 +193,34 @@ torch::Tensor sigmoid_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, 
   }));
   return igrad;
 }
+
+template <typename scalar_t> __global__ void u_gate_kernel(
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> next_ht,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> prev_ht,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> u,
+  torch::PackedTensorAccessor32<scalar_t,3,torch::RestrictPtrTraits> hc,
+  int D) {
+  CALCNTD;
+  if (d < D) {
+    next_ht[n][t][d] = prev_ht[n][t][d] * (1-u[n][t][d]) + hc[n][t][d] * (u[n][t][d]);
+  }
+}
+
+torch::Tensor u_gate_cuda(torch::Tensor next_ht, torch::Tensor prev_ht, torch::Tensor u, torch::Tensor hc) {
+  const c10::OptionalDeviceGuard device_guard(device_of(next_ht));
+  ISCUDA4(next_ht, prev_ht, u, hc)
+  GETNTDSIZE(next_ht);
+  SAMESIZE(next_ht, prev_ht);
+  SAMESIZE(next_ht, u);
+  SAMESIZE(next_ht, hc);
+  CALCBT;
+  AT_DISPATCH_FLOATING_TYPES(next_ht.type(), "u_gate", ([&] {
+    u_gate_kernel<scalar_t><<<blocks, threads>>>(
+      next_ht.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      prev_ht.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      u.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      hc.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
+      D);
+  }));
+  return next_ht;
+}

@@ -7,7 +7,7 @@ torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::
 torch::Tensor tanh_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2);
 torch::Tensor sigmoid_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd);
 torch::Tensor sigmoid_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, torch::Tensor ograd1, torch::Tensor ograd2);
-
+torch::Tensor u_gate_cuda(torch::Tensor next_ht, torch::Tensor prev_ht, torch::Tensor u, torch::Tensor hc);
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("zmdrop_forward_cuda", &zmdrop_forward_cuda, "ZMDropout forward CUDA");
@@ -16,4 +16,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("tanh_gradient_mul_cuda", &tanh_gradient_mul_cuda, "tanh gradient CUDA with ograd mul");
   m.def("sigmoid_gradient_cuda", &sigmoid_gradient_cuda, "sigmoid gradient CUDA");
   m.def("sigmoid_gradient_mul_cuda", &sigmoid_gradient_mul_cuda, "sigmoid gradient CUDA with ograd mul");
+  m.def("u_gate_cuda", &u_gate_cuda, "U gate for gridgru, CUDA");
 }
