@@ -151,7 +151,7 @@ for epoch in range(0, args.num_epochs):
         s += 'uloss %.4f masked %d/%d ' % (loss_unmasked, iter_data.masks.sum(), iter_data.masks.numel())
       s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
       print(s)
-  print('average loss: %.4f' % (totalloss.item()/traindata.batch_count))
+  print('average loss: %.4f' % (totalloss/traindata.batch_count))
 
   model.clear_states()
   model.eval()
