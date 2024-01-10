@@ -39,6 +39,7 @@ parser.add_argument('--device', default='cpu')
 parser.add_argument('--layerdevices', default=[], nargs='+')
 parser.add_argument('--swapoutlayers', default=[], type=int, nargs='+')
 parser.add_argument('--print-every', default=1, type=float)
+parser.add_argument('--bf16', default=False, action='store_true')
 args = parser.parse_args()
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -77,6 +78,9 @@ loader = DataLoader(
   batch_size = args.batch_size,
   seq_length = args.seq_length
   )
+
+if args.bf16:
+  model.to(dtype=torch.bfloat16)
 
 device = torch.device(args.device)
 if args.layerdevices:
