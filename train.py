@@ -32,6 +32,7 @@ parser.add_argument('--learning-rate', default=0.002, type=float)
 parser.add_argument('--lrdecay-every', default=5, type=int)
 parser.add_argument('--lrdecay-factor', default=0.5, type=float)
 parser.add_argument('--grad-clip', default=5, type=float)
+parser.add_argument('--warmup-iters', default=50, type=int)
 
 parser.add_argument('--checkpoint-name', default='models/output')
 parser.add_argument('--device', default='cpu')
@@ -66,6 +67,7 @@ print(model.layers)
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
 optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
+scheduler_start = optim.lr_scheduler.LinearLR(optimizer, start_factor=.1, total_iters=args.warmup_iters)
 crit = nn.CrossEntropyLoss(reduction = 'none' if args.use_masks else 'mean')
 
 logger.info('Loading data')
@@ -151,6 +153,7 @@ for epoch in range(0, args.num_epochs):
         s += 'uloss %.4f masked %d/%d ' % (loss_unmasked, iter_data.masks.sum(), iter_data.masks.numel())
       s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
       print(s)
+    scheduler_start.step()
   print('average loss: %.4f' % (totalloss/traindata.batch_count))
 
   model.clear_states()
