@@ -143,7 +143,10 @@ class GRIDGRUFunction(torch.autograd.Function):
 
     grad_x = grad_first_ht = grad_weight = grad_bias = None
     grad_x = grad_output.new_zeros(T, N, D)
-    grad_weight = weight.new_zeros(weight.size())
+    if weight.is_cpu:
+      grad_weight = weight.new_zeros((weight.size(1), weight.size(0))).t()
+    else:
+      grad_weight = weight.new_zeros(weight.size())
     grad_h0_tb = ht.new_zeros(TB, N, H)
     grad_a_tb = ht.new_zeros(TB, N, 3*H)
     grad_ad_tb = ht.new_zeros(TB, N, 3*D)
