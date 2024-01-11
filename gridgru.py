@@ -260,13 +260,6 @@ class GRIDGRUFunction(torch.autograd.Function):
           grad_Whtg.addmm_(ctx.first_ht.t(), grad_a[:, :2*H])
           torch.mul(ht[:, t:tlast-1], r_t[:, 1:TBl], out=temp_buffer_t[1:TBl].transpose(0,1))
           torch.mul(ctx.first_ht, r_t[:, 0], out=temp_buffer_t[0])
-        grad_Whtc.addbmm_(temp_buffer_t.transpose(1,2), grad_a_tb[:TBl, :, 2*H:3*H])
+        grad_Whtc.addmm_(temp_buffer_t.view(TBl*N, H).t(), grad_a_tb[:TBl].view(TBl*N, 3*H)[:, 2*H:3*H])
     grad_first_ht = grad_next_h.clone()
     return (grad_x.transpose(0,1), grad_first_ht, grad_weight, grad_bias, None, None, None, None, None, None)
-
-
-
-
-
-
-
