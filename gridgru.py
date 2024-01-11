@@ -162,6 +162,8 @@ class GRIDGRUFunction(torch.autograd.Function):
 
     grad_Wxt, grad_Wxd, grad_Whd, grad_Whtg, grad_Whtc = get_weights(D, H, grad_weight)
 
+    ht_tn = ht.transpose(0,1).contiguous()
+
     for t in range(T-1, -1, -1):
       if t == 0:
         prev_h = ctx.first_ht
@@ -203,7 +205,7 @@ class GRIDGRUFunction(torch.autograd.Function):
         torch.add(hcd_t, x_t, out=temp_bufferd_t, alpha=-1)
         sigmoid_gradient_mul(grad_aud_t, ud_t, grad_h_t, temp_bufferd_t)
         torch.mm(grad_ad_tn, Whd.t(), out=grad_h0_tn)
-        grad_Whd.addbmm_(ht[:, tfirst:t+1].transpose(0,1).transpose(1,2), grad_ad_tb[:TBl])
+        grad_Whd.addmm_(ht_tn[tfirst:t+1].view(TBl*N, -1).t(), grad_ad_tn)
         grad_Wxd[:, :2*D].addbmm_(x_t.transpose(0,1).transpose(1,2), grad_ad_tb[:TBl, :, :2*D])
         grad_a_sumd = grad_ad_tn.sum(0)
         grad_bd.add_(grad_a_sumd)
@@ -253,10 +255,10 @@ class GRIDGRUFunction(torch.autograd.Function):
         grad_a_sum = torch.sum(grad_a_tn, 0)
         grad_bt.add_(grad_a_sum)
         if t > 0:
-          grad_Whtg.addbmm_(ht[:, t-1:tlast-1].transpose(0,1).transpose(1,2), grad_a_t[:, :, :2*H])
+          grad_Whtg.addmm_(ht_tn[t-1:tlast-1].view(TBl*N, -1).t(), grad_a_t.view(TBl*N, -1)[:, :2*H])
           torch.mul(ht[:, t-1:tlast-1], r_t, out=temp_buffer_t.transpose(0,1))
         else:
-          grad_Whtg.addbmm_(ht[:, t:tlast-1].transpose(0,1).transpose(1,2), grad_a_t[1:TBl, :, :2*H])
+          grad_Whtg.addmm_(ht_tn[t:tlast-1].view(TBl*N-N, -1).t(), grad_a_t.view(TBl*N, -1)[N:, :2*H])
           grad_Whtg.addmm_(ctx.first_ht.t(), grad_a[:, :2*H])
           torch.mul(ht[:, t:tlast-1], r_t[:, 1:TBl], out=temp_buffer_t[1:TBl].transpose(0,1))
           torch.mul(ctx.first_ht, r_t[:, 0], out=temp_buffer_t[0])
