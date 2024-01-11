@@ -73,6 +73,9 @@ class GRIDGRUFunction(torch.autograd.Function):
     N = x.size(0)
     T = x.size(1)
     Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
+    if (T > 1 and weight.is_cpu):
+      Whtg = Whtg.t().contiguous().t()
+      Whtc = Whtc.t().contiguous().t()
     assert x.size(2) == D
     x_nt = x.view(N * T, -1)
     bias_nt = bias.expand(N * T, -1)
