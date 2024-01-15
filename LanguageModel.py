@@ -175,7 +175,7 @@ class LanguageModel(torch.nn.Module):
     filestorage = torch.FloatStorage.from_file(filename + '.0', shared=True, size=filesize)
     filetensor = torch.FloatTensor(filestorage)
     for (stor,off) in storages.items():
-      filetensor[off : off+stor.size()].copy_(torch.FloatTensor(stor.cpu()))
+      filetensor[off : off+stor.size()].copy_(torch.FloatTensor(stor.cpu().float()))
 
   def jsonify_tokens(self):
     def t(token):
