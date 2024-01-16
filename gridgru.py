@@ -158,6 +158,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     grad_next_h = ht.new_zeros(ctx.first_ht.size())
     temp_buffer_tb = ht.new_zeros(TB, N, H)
     temp_buffer = temp_buffer_tb[0]
+    temp_buffer2 = temp_buffer_tb[1]
     grad_next_hd_tb = ht.new_zeros(TB, N, D)
 
     grad_Wxt, grad_Wxd, grad_Whd, grad_Whtg, grad_Whtc = get_weights(D, H, grad_weight)
@@ -221,18 +222,15 @@ class GRIDGRUFunction(torch.autograd.Function):
       
       grad_next_h.add_(grad_h0)
       tanh_gradient_mul(grad_ahc, hc, grad_next_h, u)
-      torch.mm(grad_ahc, Whtc.t(), out=grad_au)
-      grad_r = grad_au
-      sigmoid_gradient_mul(grad_ar, r, grad_r, prev_h)
+      torch.mm(grad_ahc, Whtc.t(), out=temp_buffer2)
+      sigmoid_gradient_mul(grad_ar, r, temp_buffer2, prev_h)
       
       torch.add(hc, prev_h, out=temp_buffer, alpha=-1)
       sigmoid_gradient_mul(grad_au, u, grad_next_h, temp_buffer)
       
       grad_next_h.addcmul_(u, grad_next_h, value=-1)
       grad_next_h.addmm_(grad_a[:, :2*H], Whtg.t())
-      torch.mm(grad_a[:, 2*H:3*H], Whtc.t(), out=temp_buffer)
-      temp_buffer.mul_(r)
-      grad_next_h.add_(temp_buffer)
+      grad_next_h.addcmul_(temp_buffer2, r)
       
       if TBi == 0:
         tlast = t + TB
