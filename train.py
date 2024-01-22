@@ -155,7 +155,8 @@ for epoch in range(0, args.num_epochs):
       s += 'loss=%.4f, %.4f lr=%.2e ' % (loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'])
       if args.use_masks:
         s += 'uloss %.4f masked %d/%d ' % (loss_unmasked, iter_data.masks.sum(), iter_data.masks.numel())
-      s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps)' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
+      s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps) ' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
+      s += "%.2fh remaining" % (timer_tot.average() * (traindata.batch_count - iter_data.i) / 3600)
       print(s)
     scheduler_start.step()
   print('average loss: %.4f' % (totalloss/traindata.batch_count))
