@@ -36,7 +36,7 @@ class DataLoader:
       for t in self.splits.values():
         t.add_(-1)
 
-  def make_batches(self, splitname = 'train', offset = 0, shuffle = True, use_masks = False):
+  def make_batches(self, splitname = 'train', offset = 0, shuffle = True, use_masks = False, max_batches = None):
     data = self.splits[splitname]
     inputs = data[offset:-2]
     outputs = data[offset+1:-1]
@@ -47,6 +47,9 @@ class DataLoader:
       permutation = split_tensor(torch.randperm(numseq - 1), numbat, self.batch_size)
     else:
       permutation = split_tensor(torch.arange(0, self.batch_size*numbat), self.batch_size, numbat).t()
+    if max_batches and max_batches < permutation.size(0):
+      permutation = permutation[:max_batches]
+      numbat = max_batches
     inputs_split = split_tensor(inputs, numseq, self.seq_length)
     outputs_split = split_tensor(outputs, numseq, self.seq_length)
     if use_masks:
