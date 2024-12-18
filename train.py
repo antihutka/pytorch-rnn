@@ -69,6 +69,14 @@ model = get_model()
 print(model.layers)
 
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
+pgroups = [
+  {'params':[]},
+  {'params':[], 'weight_decay':0.0}]
+for pname, param in model.named_parameters():
+  group = 0
+  if pname=='0-Embedding.weight': group = 1
+  pgroups[group]['params'].append(param)
+  print("Added param %s:%s to group %d" % (pname, str(param.size()), group))
 optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
 scheduler_start = optim.lr_scheduler.LinearLR(optimizer, start_factor=.1, total_iters=args.warmup_iters)
