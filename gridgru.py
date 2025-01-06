@@ -136,7 +136,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     T = grad_output.size(1)
     D = grad_output.size(2)
     H = ctx.H
-    TB = 16 if weight.is_cuda else T
+    TB = 32 if weight.is_cuda else T
 
     Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
     gatesd = gatesd_nt.view(N, T, -1)
