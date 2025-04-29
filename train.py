@@ -75,6 +75,7 @@ pgroups = [
 for pname, param in model.named_parameters():
   group = 0
   if pname=='0-Embedding.weight': group = 1
+  if pname.endswith('.bias'): group = 1
   pgroups[group]['params'].append(param)
   print("Added param %s:%s to group %d" % (pname, str(param.size()), group))
 optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
