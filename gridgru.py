@@ -64,7 +64,10 @@ class GRIDGRU(torch.nn.Module):
     return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training, use_swapout)
 
 def swapout_tensor(t):
-  return torch.empty_like(t, device='cpu', pin_memory=True).copy_(t, non_blocking=True)
+  dt = t.dtype
+  if dt == torch.float32:
+    dt = torch.float16
+  return torch.empty_like(t, device='cpu', pin_memory=True, dtype=dt).copy_(t, non_blocking=True)
 
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod
@@ -130,8 +133,8 @@ class GRIDGRUFunction(torch.autograd.Function):
   def backward(ctx, grad_output, grad_lastht):
     (weight, bias, ht, gatesd_nt, x, gates) = ctx.saved_tensors
     if ctx.swapout:
-      gates = gates.to(weight.device, non_blocking=True)
-      gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True)
+      gates = gates.to(weight.device, non_blocking=True, dtype=weight.dtype)
+      gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True, dtype=weight.dtype)
     N = grad_output.size(0)
     T = grad_output.size(1)
     D = grad_output.size(2)
