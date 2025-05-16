@@ -11,7 +11,7 @@ torch::Tensor zmdrop_forward(torch::Tensor input, torch::Tensor noise, float mul
   TORCH_CHECK(!input.is_cuda());
   TORCH_CHECK(!noise.is_cuda());
   SAMESIZE(input, noise);
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.type(), "zmdrop_forward", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.scalar_type(), "zmdrop_forward", ([&] {
     auto input_a = input.accessor<scalar_t, 3>();
     auto noise_a = noise.accessor<uint8_t, 3>();
     int N = input_a.size(0);
@@ -40,7 +40,7 @@ torch::Tensor zmdrop_backward(torch::Tensor input, torch::Tensor grad, float mul
   TORCH_CHECK(!input.is_cuda());
   TORCH_CHECK(!grad.is_cuda());
   SAMESIZE(input, grad);
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.type(), "zmdrop_backward", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.scalar_type(), "zmdrop_backward", ([&] {
     auto input_a = input.accessor<scalar_t, 3>();
     auto grad_a = grad.accessor<scalar_t, 3>();
     int N = input_a.size(0);
@@ -67,7 +67,7 @@ torch::Tensor sigmoid_gradient(torch::Tensor igrad, torch::Tensor out, torch::Te
   TORCH_CHECK(!igrad.is_cuda() && !out.is_cuda() && !ograd.is_cuda())
   SAMESIZE(igrad, out)
   SAMESIZE(ograd, out)
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.type(), "sigmoid_gradient", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "sigmoid_gradient", ([&] {
     auto igrad_a = igrad.accessor<scalar_t, 3>();
     auto out_a = out.accessor<scalar_t, 3>();
     auto ograd_a = ograd.accessor<scalar_t, 3>();
@@ -93,7 +93,7 @@ torch::Tensor sigmoid_gradient_mul(torch::Tensor igrad, torch::Tensor out, torch
   SAMESIZE(igrad, out)
   SAMESIZE(ograd1, out)
   SAMESIZE(ograd2, out)
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.type(), "sigmoid_gradient_mul", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "sigmoid_gradient_mul", ([&] {
     auto igrad_a = igrad.accessor<scalar_t, 3>();
     auto out_a = out.accessor<scalar_t, 3>();
     auto ograd1_a = ograd1.accessor<scalar_t, 3>();
@@ -119,7 +119,7 @@ torch::Tensor tanh_gradient(torch::Tensor igrad, torch::Tensor out, torch::Tenso
   TORCH_CHECK(!igrad.is_cuda() && !out.is_cuda() && !ograd.is_cuda())
   SAMESIZE(igrad, out)
   SAMESIZE(ograd, out)
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.type(), "tanh_gradient", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "tanh_gradient", ([&] {
     auto igrad_a = igrad.accessor<scalar_t, 3>();
     auto out_a = out.accessor<scalar_t, 3>();
     auto ograd_a = ograd.accessor<scalar_t, 3>();
@@ -145,7 +145,7 @@ torch::Tensor tanh_gradient_mul(torch::Tensor igrad, torch::Tensor out, torch::T
   SAMESIZE(igrad, out)
   SAMESIZE(ograd1, out)
   SAMESIZE(ograd2, out)
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.type(), "tanh_gradient_mul", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "tanh_gradient_mul", ([&] {
     auto igrad_a = igrad.accessor<scalar_t, 3>();
     auto out_a = out.accessor<scalar_t, 3>();
     auto ograd1_a = ograd1.accessor<scalar_t, 3>();
@@ -172,7 +172,7 @@ torch::Tensor u_gate(torch::Tensor next_ht, torch::Tensor prev_ht, torch::Tensor
   SAMESIZE(u, hc)
   SAMESIZE(u, next_ht)
   SAMESIZE(u, prev_ht)
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, u.type(), "u_gate", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, u.scalar_type(), "u_gate", ([&] {
     auto next_ht_a = next_ht.accessor<scalar_t, 3>();
     auto prev_ht_a = prev_ht.accessor<scalar_t, 3>();
     auto u_a = u.accessor<scalar_t, 3>();
