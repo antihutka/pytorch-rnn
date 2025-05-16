@@ -48,6 +48,8 @@ args = parser.parse_args()
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger('train')
 
+torch.set_float32_matmul_precision('high')
+
 logger.info('Creating model')
 def get_model():
   m = LanguageModel()
