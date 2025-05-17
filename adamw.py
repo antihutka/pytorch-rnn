@@ -49,6 +49,6 @@ class BetterAdamW(torch.optim.Optimizer):
         else:
           param = p.data
           grad = p.grad
-        ptrnn_cpp.adamW_step(param, grad, exp_avg, exp_avg_sq, lr, weight_decay, eps, beta1, beta2, 0, step)
+        ptrnn_cpp.adamW_step(param, grad, exp_avg, exp_avg_sq, lr, weight_decay, eps, beta1, beta2, grad_clip, step)
         if p.is_cuda:
           p.data.copy_(param, non_blocking=True)
