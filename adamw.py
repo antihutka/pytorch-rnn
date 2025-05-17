@@ -27,12 +27,19 @@ class BetterAdamW(torch.optim.Optimizer):
           state["step"] = 0
           state["exp_avg"] = torch.zeros_like(p, device='cpu')
           state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
+          if p.is_cuda:
+            state["param_cache"] = torch.empty_like(p, device='cpu', pin_memory=True).copy_(p.data)
+            state["grad_cache"] = torch.empty_like(p, device='cpu', pin_memory=True)
         state["step"] += 1
         step = state["step"]
         exp_avg = state["exp_avg"]
         exp_avg_sq = state["exp_avg_sq"]
-        grad = p.grad.to(device='cpu')
-        param = p.data.to(device='cpu')
+        if p.is_cuda:
+          param = state["param_cache"]
+          grad = state["grad_cache"].copy_(p.grad)
+        else:
+          param = p.data
+          grad = p.grad
         ptrnn_cpp.adamW_step(param, grad, exp_avg, exp_avg_sq, lr, weight_decay, eps, beta1, beta2, 0, step)
-        if p.data.device != param.device:
-          p.data.copy_(param)
+        if p.is_cuda:
+          p.data.copy_(param, non_blocking=True)
