@@ -2,6 +2,8 @@
 
 #define _OPENMP
 #include <ATen/ParallelOpenMP.h>
+#include <ATen/TensorIterator.h>
+#include <ATen/native/cpu/Loops.h>
 
 #include <iostream>
 
@@ -193,6 +195,33 @@ torch::Tensor u_gate(torch::Tensor next_ht, torch::Tensor prev_ht, torch::Tensor
   return next_ht;
 }
 
+void adamW_step(torch::Tensor paramt, torch::Tensor gradt, torch::Tensor exp_avgt, torch::Tensor exp_avg_sqt, float lr, float weight_decay, float eps, float beta1, float beta2, float grad_clip, int step)
+{
+  auto iter = at::TensorIteratorConfig()
+    .add_output(paramt)
+    .add_output(exp_avgt)
+    .add_output(exp_avg_sqt)
+    .add_input(paramt)
+    .add_input(gradt)
+    .add_input(exp_avgt)
+    .add_input(exp_avg_sqt)
+    .build();
+  float step_size = lr / (1-powf(beta1, step));
+  float denom_corr = sqrtf(1 - powf(beta2, step));
+  at::native::cpu_kernel_multiple_outputs(iter,
+    [=](float p, float g, float xa, float xas) -> std::tuple<float, float, float> {
+      if (grad_clip > 0 && g > grad_clip) g = grad_clip;
+      if (grad_clip > 0 && g < -grad_clip) g = -grad_clip;
+      p *= 1 - lr*weight_decay;
+      xa = xa*beta1 + g*(1-beta1);
+      xas = xas*beta2 + g*g*(1-beta2);
+      float cv = sqrtf(xas)/denom_corr+eps;
+      p -= xa/cv*step_size;
+      return std::tuple<float,float,float>(p, xa, xas);
+    }
+  );
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("zmdrop_forward", &zmdrop_forward, "ZMDropout forward");
   m.def("zmdrop_backward", &zmdrop_backward, "ZMDropout backward");
@@ -201,4 +230,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("tanh_gradient", &tanh_gradient, "Tanh gradient");
   m.def("tanh_gradient_mul", &tanh_gradient_mul, "Tanh gradient with output mul");
   m.def("u_gate", &u_gate, "U gate for gridgru");
+  m.def("adamW_step", &adamW_step, "adamW step");
 }

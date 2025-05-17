@@ -9,6 +9,7 @@ import time
 import json
 import sys
 from trainutils import Timer, Average, ValueHistory
+from adamw import BetterAdamW
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input-h5', default='data/tiny-shakespeare.h5')
@@ -81,7 +82,7 @@ for pname, param in model.named_parameters():
   if pname.endswith('.bias'): group = 1
   pgroups[group]['params'].append(param)
   print("Added param %s:%s to group %d" % (pname, str(param.size()), group))
-optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+optimizer = BetterAdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
 scheduler_start = optim.lr_scheduler.LinearLR(optimizer, start_factor=.1, total_iters=args.warmup_iters)
 crit = nn.CrossEntropyLoss(reduction = 'none' if args.use_masks else 'mean')

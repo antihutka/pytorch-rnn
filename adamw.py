@@ -1,0 +1,38 @@
+import torch
+import ptrnn_cpp
+
+class BetterAdamW(torch.optim.Optimizer):
+  def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay = 0.0, grad_clip = 0.0):
+    defaults = {'lr':lr, 'betas':betas, 'eps':eps, 'weight_decay':weight_decay, 'grad_clip':grad_clip}
+    super().__init__(params, defaults)
+
+  @torch.no_grad()
+  def step(self, closure=None):
+    if closure is not None:
+      with torch.enable_grad():
+        closure()
+    for group in self.param_groups:
+      beta1, beta2 = group["betas"]
+      lr = group["lr"]
+      weight_decay = group["weight_decay"]
+      eps = group["eps"]
+      grad_clip = group["grad_clip"]
+      for p in group["params"]:
+        if p.grad is None:
+          continue
+        if p.grad.is_sparse:
+          raise RuntimeError("BetterAdamW does not support sparse gradients")
+        state = self.state[p]
+        if len(state) == 0:
+          state["step"] = 0
+          state["exp_avg"] = torch.zeros_like(p, device='cpu')
+          state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
+        state["step"] += 1
+        step = state["step"]
+        exp_avg = state["exp_avg"]
+        exp_avg_sq = state["exp_avg_sq"]
+        grad = p.grad.to(device='cpu')
+        param = p.data.to(device='cpu')
+        ptrnn_cpp.adamW_step(param, grad, exp_avg, exp_avg_sq, lr, weight_decay, eps, beta1, beta2, 0, step)
+        if p.data.device != param.device:
+          p.data.copy_(param)
