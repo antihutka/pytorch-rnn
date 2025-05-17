@@ -151,6 +151,7 @@ for epoch in range(0, args.num_epochs):
         masksum = iter_data.masks.sum()
         loss_unmasked = loss.sum() / loss.numel()
         loss = (loss * masks).sum() / masksum
+        masks = None
       outputs = None
     with timer_bck:
       loss.backward()
