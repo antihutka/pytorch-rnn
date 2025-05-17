@@ -12,6 +12,20 @@ class BetterAdamW(torch.optim.Optimizer):
       with torch.enable_grad():
         closure()
     for group in self.param_groups:
+      for p in group["params"]:
+        state = self.state[p]
+        if len(state) == 0:
+          state["step"] = 0
+          state["exp_avg"] = torch.zeros_like(p, device='cpu')
+          state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
+          if p.is_cuda:
+            state["param_cache"] = torch.empty_like(p, device='cpu', pin_memory=True).copy_(p.data, non_blocking=True)
+            state["grad_cache"] = torch.empty_like(p, device='cpu', pin_memory=True)
+        if p.is_cuda:
+          state["grad_cache"].copy_(p.grad, non_blocking=True)
+          state["event"] = torch.cuda.Event()
+          state["event"].record()
+    for group in self.param_groups:
       beta1, beta2 = group["betas"]
       lr = group["lr"]
       weight_decay = group["weight_decay"]
@@ -23,20 +37,15 @@ class BetterAdamW(torch.optim.Optimizer):
         if p.grad.is_sparse:
           raise RuntimeError("BetterAdamW does not support sparse gradients")
         state = self.state[p]
-        if len(state) == 0:
-          state["step"] = 0
-          state["exp_avg"] = torch.zeros_like(p, device='cpu')
-          state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
-          if p.is_cuda:
-            state["param_cache"] = torch.empty_like(p, device='cpu', pin_memory=True).copy_(p.data)
-            state["grad_cache"] = torch.empty_like(p, device='cpu', pin_memory=True)
         state["step"] += 1
         step = state["step"]
         exp_avg = state["exp_avg"]
         exp_avg_sq = state["exp_avg_sq"]
         if p.is_cuda:
           param = state["param_cache"]
-          grad = state["grad_cache"].copy_(p.grad)
+          grad = state["grad_cache"]
+          state["event"].wait()
+          state["event"]=None
         else:
           param = p.data
           grad = p.grad
