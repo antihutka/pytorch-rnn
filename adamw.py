@@ -44,7 +44,7 @@ class BetterAdamW(torch.optim.Optimizer):
         if p.is_cuda:
           param = state["param_cache"]
           grad = state["grad_cache"]
-          state["event"].wait()
+          state["event"].synchronize()
           state["event"]=None
         else:
           param = p.data
