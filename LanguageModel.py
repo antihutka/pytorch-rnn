@@ -207,7 +207,6 @@ class LanguageModel(torch.nn.Module):
     for li, lay in enumerate(self.layers):
       ln = "%d-%s" % (li, type(lay).__name__)
       self.add_module(ln, lay)
-      print(ln)
 
   def longest_prefix(self, input_string):
     for toklen in range(self.longest_token, 0, -1):
