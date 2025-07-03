@@ -63,6 +63,9 @@ class GRIDGRU(torch.nn.Module):
     use_swapout = self.swapout and torch.is_grad_enabled()
     return GRIDGRUFunction.apply(x, prev_ht, self.weight, self.bias, H, D, self.zoneout, self.zoneoutd, self.training, use_swapout)
 
+  def __repr__(self):
+    return "GRIDGRU(%d,%d,zoneout=%f,zoneoutd=%f)" % (self.input_dim, self.hidden_dim, self.zoneout, self.zoneoutd)
+
 def swapout_tensor(t):
   dt = t.dtype
   if dt == torch.float32:
