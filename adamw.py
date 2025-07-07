@@ -6,6 +6,33 @@ class BetterAdamW(torch.optim.Optimizer):
     defaults = {'lr':lr, 'betas':betas, 'eps':eps, 'weight_decay':weight_decay, 'grad_clip':grad_clip}
     super().__init__(params, defaults)
 
+  def create_state_for(self, p):
+    state = self.state[p]
+    if len(state) == 0:
+      state["step"] = 0
+      state["exp_avg"] = torch.zeros_like(p, device='cpu')
+      state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
+      if p.is_cuda:
+        state["param_cache"] = torch.empty_like(p, device='cpu', pin_memory=True).copy_(p.data, non_blocking=True)
+        state["grad_cache"] = torch.empty_like(p, device='cpu', pin_memory=True)
+    return state
+
+  def register_hooks(self):
+    stream = torch.cuda.Stream()
+    @torch.no_grad()
+    def hook(p):
+      state = self.create_state_for(p)
+      with torch.cuda.stream(stream):
+        state["grad_cache"].copy_(p.grad, non_blocking=True)
+        state["event"] = torch.cuda.Event()
+        state["event"].record()
+        p.grad.record_stream(stream)
+      p.grad = None
+    for group in self.param_groups:
+      for p in group["params"]:
+        if p.is_cuda and p.requires_grad:
+          p.register_post_accumulate_grad_hook(hook)
+
   @torch.no_grad()
   def step(self, closure=None):
     if closure is not None:
@@ -13,15 +40,8 @@ class BetterAdamW(torch.optim.Optimizer):
         closure()
     for group in self.param_groups:
       for p in group["params"]:
-        state = self.state[p]
-        if len(state) == 0:
-          state["step"] = 0
-          state["exp_avg"] = torch.zeros_like(p, device='cpu')
-          state["exp_avg_sq"] = torch.zeros_like(p, device='cpu')
-          if p.is_cuda:
-            state["param_cache"] = torch.empty_like(p, device='cpu', pin_memory=True).copy_(p.data, non_blocking=True)
-            state["grad_cache"] = torch.empty_like(p, device='cpu', pin_memory=True)
-        if p.is_cuda:
+        state = self.create_state_for(p)
+        if p.is_cuda and "event" not in state and p.grad is not None:
           state["grad_cache"].copy_(p.grad, non_blocking=True)
           state["event"] = torch.cuda.Event()
           state["event"].record()
@@ -32,9 +52,9 @@ class BetterAdamW(torch.optim.Optimizer):
       eps = group["eps"]
       grad_clip = group["grad_clip"]
       for p in group["params"]:
-        if p.grad is None:
+        if p.grad is None and "event" not in state:
           continue
-        if p.grad.is_sparse:
+        if p.grad is not None and p.grad.is_sparse:
           raise RuntimeError("BetterAdamW does not support sparse gradients")
         state = self.state[p]
         state["step"] += 1

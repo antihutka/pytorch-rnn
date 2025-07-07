@@ -112,6 +112,7 @@ for swl in args.swapoutlayers:
   print("Enabling swapout for layer %d" % swl)
   model.layers[swl].set_swapout(True)
 
+optimizer.register_hooks()
 double_seq_on = [int(x) for x in args.double_seq_on.split(',')] if args.double_seq_on else []
 
 totalfwd = 0
