@@ -22,7 +22,10 @@ class BetterAdamW(torch.optim.Optimizer):
     @torch.no_grad()
     def hook(p):
       state = self.create_state_for(p)
+      event1 = torch.cuda.Event();
+      event1.record()
       with torch.cuda.stream(stream):
+        event1.wait()
         state["grad_cache"].copy_(p.grad, non_blocking=True)
         state["event"] = torch.cuda.Event()
         state["event"].record()
