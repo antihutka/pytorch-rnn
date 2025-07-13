@@ -122,7 +122,7 @@ timer_pre = Timer()
 timer_fwd = Timer()
 timer_bck = Timer()
 timer_tot = Timer()
-avg_tloss = Average(100)
+avg_tloss = Average(int(max(100, args.print_every)))
 vloss_history = ValueHistory('val loss')
 tloss_history = ValueHistory('train loss')
 
