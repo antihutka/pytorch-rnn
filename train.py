@@ -99,6 +99,7 @@ if args.bf16:
   model.to(dtype=torch.bfloat16)
 
 device = torch.device(args.device)
+device_is_cuda = (device.type == 'cuda')
 if args.layerdevices:
   for ld in args.layerdevices:
     start, end, device = ld.split(',')
@@ -132,6 +133,7 @@ for epoch in range(0, args.num_epochs):
     loader.set_seq_batch(args.seq_length, args.batch_size)
     logger.info('Doubling sequence length to seq_length=%d batch_size=%d' % (args.seq_length, args.batch_size))
   traindata = loader.make_batches('train', 0 if (args.no_offset or epoch % 2 == 0) else (args.seq_length // 2), use_masks = args.use_masks, max_batches = args.max_batches)
+  xbuffer = torch.empty((3, args.batch_size, args.seq_length), dtype=torch.long, pin_memory=device_is_cuda)
   timer_pre.reset()
   timer_fwd.reset()
   timer_bck.reset()
@@ -145,12 +147,15 @@ for epoch in range(0, args.num_epochs):
     optimizer.zero_grad()
     model.clear_states()
     with torch.no_grad(), timer_pre:
-      model(iter_data.preinputs.long())
+      xbuffer[0].copy_(iter_data.preinputs)
+      model(xbuffer[0])
     with timer_fwd:
-      outputs = model(iter_data.inputs.long())
-      loss = crit(outputs.contiguous().view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
+      xbuffer[1].copy_(iter_data.inputs)
+      outputs = model(xbuffer[1])
+      xbuffer[2].copy_(iter_data.outputs)
+      loss = crit(outputs.contiguous().view(N*T, -1), xbuffer[2].to(device, non_blocking=device_is_cuda).view(N*T))
       if args.use_masks:
-        masks = iter_data.masks.float().to(device).view(N*T)
+        masks = iter_data.masks.float().to(device, non_blocking=device_is_cuda).view(N*T)
         masksum = iter_data.masks.sum()
         loss_unmasked = loss.sum() / loss.numel()
         loss = (loss * masks).sum() / masksum
@@ -190,9 +195,9 @@ for epoch in range(0, args.num_epochs):
         model(iter_data.preinputs.long())
       with timer_fwd:
         outputs = model(iter_data.inputs.long())
-      loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device).long().view(N*T))
+      loss = crit(outputs.view(N*T, -1), iter_data.outputs.to(device, non_blocking=device_is_cuda).long().view(N*T))
       if args.use_masks:
-        masks = iter_data.masks.float().to(device).view(N*T)
+        masks = iter_data.masks.float().to(device, non_blocking=device_is_cuda).view(N*T)
         masksum = iter_data.masks.sum()
         loss = (loss * masks).sum() / masksum
       totalloss += loss
