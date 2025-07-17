@@ -80,7 +80,7 @@ for pname, param in model.named_parameters():
   group = 0
   if pname=='0-Embedding.weight': group = 1
   if pname.endswith('.bias'): group = 1
-  pgroups[group]['params'].append(param)
+  pgroups[group]['params'].insert(0, param) # reverse the order of parameter tensors to get more out of async gradient copies
   print("Added param %s:%s to group %d" % (pname, str(param.size()), group))
 optimizer = BetterAdamW(pgroups, lr=args.learning_rate, weight_decay=args.weight_decay, grad_clip=args.grad_clip)
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
