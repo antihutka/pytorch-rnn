@@ -66,15 +66,23 @@ class GRIDGRU(torch.nn.Module):
   def __repr__(self):
     return "GRIDGRU(%d,%d,zoneout=%f,zoneoutd=%f)" % (self.input_dim, self.hidden_dim, self.zoneout, self.zoneoutd)
 
-def swapout_tensor(t):
+def swapout_tensor(t, stream):
   dt = t.dtype
-  if dt == torch.float32:
-    dt = torch.float16
-  return torch.empty_like(t, device='cpu', pin_memory=True, dtype=dt).copy_(t, non_blocking=True)
+  st = torch.empty_like(t, device='cpu', pin_memory=True, dtype=dt)
+  with torch.cuda.stream(stream):
+    st.copy_(t, non_blocking=True)
+    t.record_stream(stream)
+  return st
+
+swapstream_g = torch.cuda.Stream()
 
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod
   def forward(ctx, x, prev_ht, weight, bias, H, D, zoneout, zoneoutd, training, swapout):
+    if swapout:
+      mainstream = torch.cuda.current_stream()
+      swapstream = swapstream_g
+
     ctx.first_ht = prev_ht
     N = x.size(0)
     T = x.size(1)
@@ -108,6 +116,10 @@ class GRIDGRUFunction(torch.autograd.Function):
         u.mul_(1-zoneout)
       u_gate(next_ht, prev_ht, u, hc)
       prev_ht = next_ht
+    if swapout:
+      swapstream.wait_stream(mainstream)
+      gates_cpu = swapout_tensor(gates, swapstream)
+      ht_cpu = swapout_tensor(ht, swapstream)
     gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
     gatesd_nt[:, :2*D].sigmoid_()
     ud_b = gatesd_nt[:, :D]
@@ -121,14 +133,18 @@ class GRIDGRUFunction(torch.autograd.Function):
     hcd_b.addmm_(bfr2, Wxd[:, 2*D:3*D])
 
     hcd_b.tanh_()
+    if swapout:
+      swapstream.wait_stream(mainstream)
+      gatesd_nt_cpu = swapout_tensor(gatesd_nt, swapstream)
     h = torch.zeros_like(x)
     u_gate(h, x, ud_b.view(N, T, -1), hcd_b.view(N, T, -1))
 
     ctx.H = H
     ctx.swapout = swapout
     if swapout:
-      gates = swapout_tensor(gates)
-      gatesd_nt = swapout_tensor(gatesd_nt)
+      gates = gates_cpu
+      gatesd_nt = gatesd_nt_cpu
+      ht = ht_cpu
     ctx.save_for_backward(weight, bias, ht, gatesd_nt, x, gates)
     return (h, next_ht.clone())
 
@@ -138,6 +154,7 @@ class GRIDGRUFunction(torch.autograd.Function):
     if ctx.swapout:
       gates = gates.to(weight.device, non_blocking=True, dtype=weight.dtype)
       gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True, dtype=weight.dtype)
+      ht = ht.to(weight.device, non_blocking=True, dtype=weight.dtype)
     N = grad_output.size(0)
     T = grad_output.size(1)
     D = grad_output.size(2)
