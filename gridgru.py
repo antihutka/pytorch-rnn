@@ -68,7 +68,7 @@ class GRIDGRU(torch.nn.Module):
 
 def swapout_tensor(t, stream):
   dt = t.dtype
-  st = torch.empty_like(t, device='cpu', pin_memory=True, dtype=dt)
+  st = torch.empty_like(t, device='cpu', pin_memory=True, dtype=dt, memory_format=torch.contiguous_format)
   with torch.cuda.stream(stream):
     st.copy_(t, non_blocking=True)
     t.record_stream(stream)
@@ -97,10 +97,10 @@ class GRIDGRUFunction(torch.autograd.Function):
     gates = gates_nt.view(N, T, -1)
     gatesd_nt = bias_nt[:, 3*H:].clone()
     gatesd_nt[:, :2*D].addmm_(x_nt, Wxd[:, :2*D])
-    ht = x.new_zeros(N, T, H)
+    ht = x.new_zeros(T, N, H)
     bfr1 = None
     for t in range(0, T):
-      next_ht = ht[:, t]
+      next_ht = ht[t]
       cur_gates = gates[:, t]
       cur_gates_g = cur_gates[:, :2 * H]
       cur_gates_g.addmm_(prev_ht, Whtg).sigmoid_()
@@ -120,7 +120,7 @@ class GRIDGRUFunction(torch.autograd.Function):
       swapstream.wait_stream(mainstream)
       gates_cpu = swapout_tensor(gates, swapstream)
       ht_cpu = swapout_tensor(ht, swapstream)
-    gatesd_nt.addmm_(ht.view(N*T, -1), Whd)
+    gatesd_nt.addmm_(ht.transpose(0,1).contiguous().view(N*T, -1), Whd)
     gatesd_nt[:, :2*D].sigmoid_()
     ud_b = gatesd_nt[:, :D]
     rd_b = gatesd_nt[:, D:2*D]
@@ -150,15 +150,24 @@ class GRIDGRUFunction(torch.autograd.Function):
 
   @staticmethod
   def backward(ctx, grad_output, grad_lastht):
-    (weight, bias, ht, gatesd_nt, x, gates) = ctx.saved_tensors
-    if ctx.swapout:
-      gates = gates.to(weight.device, non_blocking=True, dtype=weight.dtype)
-      gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True, dtype=weight.dtype)
-      ht = ht.to(weight.device, non_blocking=True, dtype=weight.dtype)
+    (weight, bias, ht_tn, gatesd_nt, x, gates) = ctx.saved_tensors
     N = grad_output.size(0)
     T = grad_output.size(1)
     D = grad_output.size(2)
     H = ctx.H
+    swapout = ctx.swapout
+    if swapout:
+      mainstream = torch.cuda.current_stream()
+      swapstream = swapstream_g
+      preswap = T - 64
+      gates = gates.to(weight.device, non_blocking=True, dtype=weight.dtype)
+      gatesd_nt = gatesd_nt.to(weight.device, non_blocking=True, dtype=weight.dtype)
+      ht_tn_gpu = x.new_zeros(T, N, H)
+      ht_tn_gpu[preswap:].copy_(ht_tn[preswap:], non_blocking=True)
+      swapstream.wait_stream(mainstream)
+      with torch.cuda.stream(swapstream):
+        ht_tn_gpu[:preswap].copy_(ht_tn[:preswap], non_blocking=True)
+      ht_tn = ht_tn_gpu
     TB = 32 if weight.is_cuda else T
 
     Wxt, Wxd, Whd, Whtg, Whtc = get_weights(D, H, weight)
@@ -170,23 +179,22 @@ class GRIDGRUFunction(torch.autograd.Function):
       grad_weight = weight.new_zeros((weight.size(1), weight.size(0))).t()
     else:
       grad_weight = weight.new_zeros(weight.size())
-    grad_h0_tb = ht.new_zeros(TB, N, H)
-    grad_a_tb = ht.new_zeros(TB, N, 3*H)
-    grad_ad_tb = ht.new_zeros(TB, N, 3*D)
-    temp_bufferd_tb = ht.new(TB, N, D)
+    grad_h0_tb = x.new_zeros(TB, N, H)
+    grad_a_tb = x.new_zeros(TB, N, 3*H)
+    grad_ad_tb = x.new_zeros(TB, N, 3*D)
+    temp_bufferd_tb = x.new(TB, N, D)
     #grad_a_sumd = ht.new(1, 3*D)
     grad_bias = bias.new_zeros(bias.size())
     grad_bt = grad_bias[:3*H]
     grad_bd = grad_bias[3*H:]
-    grad_next_h = ht.new_zeros(ctx.first_ht.size())
-    temp_buffer_tb = ht.new_zeros(TB, N, H)
+    grad_next_h = x.new_zeros(ctx.first_ht.size())
+    temp_buffer_tb = x.new_zeros(TB, N, H)
     temp_buffer = temp_buffer_tb[0]
     temp_buffer2 = temp_buffer_tb[1]
-    grad_next_hd_tb = ht.new_zeros(TB, N, D)
+    grad_next_hd_tb = x.new_zeros(TB, N, D)
 
     grad_Wxt, grad_Wxd, grad_Whd, grad_Whtg, grad_Whtc = get_weights(D, H, grad_weight)
 
-    ht_tn = ht.transpose(0,1).contiguous()
     ht = None
     x_tn = x.transpose(0,1).contiguous()
 
@@ -231,6 +239,11 @@ class GRIDGRUFunction(torch.autograd.Function):
         torch.add(hcd_t, x_t, out=temp_bufferd_t, alpha=-1)
         sigmoid_gradient_mul(grad_aud_t, ud_t, grad_h_t, temp_bufferd_t)
         torch.mm(grad_ad_tn, Whd.t(), out=grad_h0_tn)
+        
+        if swapout and tfirst < preswap:
+          mainstream.wait_stream(swapstream)
+          swapout = False
+        
         grad_Whd.addmm_(ht_tn[tfirst:t+1].view(TBl*N, -1).t(), grad_ad_tn)
         grad_Wxd[:, :2*D].addmm_(x_tn[tfirst:t+1].view(TBl*N, -1).t(), grad_ad_tb[:TBl].view(TBl*N, -1)[:, :2*D])
         grad_a_sumd = grad_ad_tn.sum(0)
