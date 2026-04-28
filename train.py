@@ -83,7 +83,7 @@ for pname, param in model.named_parameters():
   if pname.endswith('.bias'): group = 1
   pgroups[group]['params'].insert(0, param) # reverse the order of parameter tensors to get more out of async gradient copies
   print("Added param %s:%s to group %d" % (pname, str(param.size()), group))
-optimizer = BetterAdamW(pgroups, lr=args.learning_rate, weight_decay=args.weight_decay, grad_clip=args.grad_clip, eps=args.eps)
+optimizer = BetterAdamW(pgroups, lr=args.learning_rate, weight_decay=args.weight_decay, grad_clip=args.grad_clip, eps=args.eps, betas=(0.95, 0.999))
 scheduler = optim.lr_scheduler.StepLR(optimizer, args.lrdecay_every, args.lrdecay_factor)
 scheduler_start = optim.lr_scheduler.LinearLR(optimizer, start_factor=.1, total_iters=args.warmup_iters)
 crit = nn.CrossEntropyLoss(reduction = 'none' if args.use_masks else 'mean')
