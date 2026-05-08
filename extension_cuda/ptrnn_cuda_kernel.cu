@@ -36,7 +36,7 @@ torch::Tensor zmdrop_forward_cuda(torch::Tensor input, torch::Tensor noise, floa
   GETNTDSIZE(input);
   SAMESIZE(input, noise);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "zmdrop_forward_cuda", ([&] { 
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.scalar_type(), "zmdrop_forward_cuda", ([&] { 
     zmdrop_forward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       noise.packed_accessor32<uint8_t, 3, torch::RestrictPtrTraits>(),
@@ -66,7 +66,7 @@ torch::Tensor zmdrop_backward_cuda(torch::Tensor input, torch::Tensor grad, floa
   GETNTDSIZE(input);
   SAMESIZE(input, grad);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "zmdrop_backward_cuda", ([&] { 
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, input.scalar_type(), "zmdrop_backward_cuda", ([&] { 
     zmdrop_backward_kernel<scalar_t><<<blocks, threads>>>(
       input.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       grad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -93,7 +93,7 @@ torch::Tensor tanh_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torch::
   SAMESIZE(igrad, out);
   SAMESIZE(igrad, ograd);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(igrad.scalar_type(), "tanh_gradient_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "tanh_gradient_cuda", ([&] {
     tanh_gradient_kernel<scalar_t><<<blocks, threads>>>(
       igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -123,7 +123,7 @@ torch::Tensor tanh_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, tor
   SAMESIZE(igrad, ograd1);
   SAMESIZE(igrad, ograd2);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(igrad.scalar_type(), "tanh_gradient_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "tanh_gradient_cuda", ([&] {
     tanh_gradient_mul_kernel<scalar_t><<<blocks, threads>>>(
       igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -153,7 +153,7 @@ torch::Tensor sigmoid_gradient_cuda(torch::Tensor igrad, torch::Tensor out, torc
   SAMESIZE(igrad, out);
   SAMESIZE(igrad, ograd);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(igrad.scalar_type(), "sigmoid_gradient_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "sigmoid_gradient_cuda", ([&] {
     sigmoid_gradient_kernel<scalar_t><<<blocks, threads>>>(
       igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -183,7 +183,7 @@ torch::Tensor sigmoid_gradient_mul_cuda(torch::Tensor igrad, torch::Tensor out, 
   SAMESIZE(igrad, ograd1);
   SAMESIZE(igrad, ograd2);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(igrad.scalar_type(), "sigmoid_gradient_mul_cuda", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, igrad.scalar_type(), "sigmoid_gradient_mul_cuda", ([&] {
     sigmoid_gradient_mul_kernel<scalar_t><<<blocks, threads>>>(
       igrad.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       out.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
@@ -214,7 +214,7 @@ torch::Tensor u_gate_cuda(torch::Tensor next_ht, torch::Tensor prev_ht, torch::T
   SAMESIZE(next_ht, u);
   SAMESIZE(next_ht, hc);
   CALCBT;
-  AT_DISPATCH_FLOATING_TYPES(next_ht.scalar_type(), "u_gate", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::BFloat16, next_ht.scalar_type(), "u_gate", ([&] {
     u_gate_kernel<scalar_t><<<blocks, threads>>>(
       next_ht.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
       prev_ht.packed_accessor32<scalar_t, 3, torch::RestrictPtrTraits>(),
