@@ -39,6 +39,7 @@ parser.add_argument('--grad-clip', default=5, type=float)
 parser.add_argument('--warmup-iters', default=50, type=int)
 parser.add_argument('--weight-decay', default=0.0, type=float)
 parser.add_argument('--eps', default=1e-8, type=float)
+parser.add_argument('--freeze-layers', default=[], type=int, nargs='+')
 
 parser.add_argument('--checkpoint-name', default='models/output')
 parser.add_argument('--device', default='cpu')
@@ -72,6 +73,11 @@ def get_model():
   return m
 model = get_model()
 print(model.layers)
+
+for l in args.freeze_layers:
+  logger.info('freezing layer %d-%s' % (l, model.layers[l]))
+  for p in model.layers[l].parameters():
+    p.requires_grad = False
 
 logger.info('%s model with %d parameters' % ('Created' if args.load_model is None else 'Loaded', sum((p.numel() for p in model.parameters()))))
 pgroups = [
