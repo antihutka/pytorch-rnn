@@ -55,11 +55,11 @@ class BetterAdamW(torch.optim.Optimizer):
       eps = group["eps"]
       grad_clip = group["grad_clip"]
       for p in group["params"]:
+        state = self.state[p]
         if p.grad is None and "event" not in state:
           continue
         if p.grad is not None and p.grad.is_sparse:
           raise RuntimeError("BetterAdamW does not support sparse gradients")
-        state = self.state[p]
         state["step"] += 1
         step = state["step"]
         exp_avg = state["exp_avg"]
