@@ -179,7 +179,7 @@ for epoch in range(0, args.num_epochs):
     tloss_history.add_value(epoch + iter_data.i / traindata.batch_count, loss)
     if iter_data.i % args.print_every == 0:
       s = 'ep %d/%d iter %d/%d ' % (epoch, args.num_epochs, iter_data.i, traindata.batch_count)
-      s += 'loss=%.4f, %.4f lr=%.2e ' % (loss, avg_tloss.avg(), optimizer.param_groups[0]['lr'])
+      s += 'loss=%.4f, %.4f, %.4f lr=%.2e ' % (loss, avg_tloss.avg(), totalloss / (iter_data.i+1), optimizer.param_groups[0]['lr'])
       if args.use_masks:
         s += 'uloss %.4f masked %d/%d ' % (loss_unmasked.detach(), iter_data.masks.sum(), iter_data.masks.numel())
       s +='Times: %.2f %.2f %.2f %.2f (%4.1f tps) ' % (timer_pre.last, timer_fwd.last, timer_bck.last, timer_tot.last, N*T/timer_tot.average())
