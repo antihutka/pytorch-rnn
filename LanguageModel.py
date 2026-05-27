@@ -148,8 +148,8 @@ class LanguageModel(torch.nn.Module):
     self.parse_tokendata(j)
     # let's only support one data file for checkpoint
     datafile = find_data_file(filename)
-    filesize = os.path.getsize(datafile) // 4
-    storage = torch.FloatStorage.from_file(datafile, False, filesize)
+    filesize = os.path.getsize(datafile)
+    storage = torch.UntypedStorage.from_file(datafile, False, filesize)
     #print("Loaded storage from %s with %d elements" % (datafile, storage.size()))
     for idx, layerdef in enumerate(j['layers']):
       #print("layer %d -> %s" % (idx, layerdef))
