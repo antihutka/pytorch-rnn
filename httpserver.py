@@ -151,5 +151,5 @@ app = web.Application()
 app.add_routes(routes)
 web.run_app(
   app,
-  port = config.get('http', 'port'),
+  port = config.getint('http', 'port'),
 )
