@@ -3,6 +3,7 @@ import json
 import os.path
 from gridgru import GRIDGRU
 from lstm import PTLSTM
+from attention import AttentionLayer
 from simple_layers import RNNLinear
 from extensions import ZMDropout
 
@@ -42,6 +43,14 @@ def layer_from_layerdef(layerdef, storage, clone_tensors):
     w = tensor_from_tensordef(layerdef['weight'], storage, clone_tensors)
     b = tensor_from_tensordef(layerdef['bias'], storage, clone_tensors)
     return RNNLinear(weight = w, bias = b), False
+  elif ltype == 'AttentionLayer':
+    wi = tensor_from_tensordef(layerdef['weight_in'], storage, clone_tensors)
+    bi = tensor_from_tensordef(layerdef['bias_in'], storage, clone_tensors)
+    wo = tensor_from_tensordef(layerdef['weight_out'], storage, clone_tensors)
+    bo = tensor_from_tensordef(layerdef['bias_out'], storage, clone_tensors)
+    si = tensor_from_tensordef(layerdef['sinks'], storage, clone_tensors)
+    return AttentionLayer(kq_size = layerdef['kq_size'], v_size = layerdef['v_size'], kv_num = layerdef['kv_num'], q_num = layerdef['q_num'], ctx_len = layerdef['ctx_len'],
+                          weight_in = wi, bias_in = bi, weight_out = wo, bias_out = bo, sinks = si, input_dim=1280), True
   else:
     raise(Exception("unknown layer %s" % ltype))
 
@@ -62,6 +71,11 @@ def save_layer(layer, params):
   elif ltype == 'Linear' or ltype == 'RNNLinear':
     ltype = 'Linear'
     ld = {'weight' : params[layer.weight], 'bias' : params[layer.bias]}
+  elif ltype == 'AttentionLayer':
+    ld = {'weight_in': params[layer.weight_in], 'bias_in': params[layer.bias_in],
+          'weight_out': params[layer.weight_out], 'bias_out': params[layer.bias_out],
+          'sinks': params[layer.sinks],
+          'kq_size': layer.kq_size, 'v_size': layer.v_size, 'kv_num': layer.kv_num, 'q_num': layer.q_num, 'ctx_len': layer.ctx_len, 'input_dim': layer.input_dim}
   else:
     raise Exception('Unknown layer type ' + ltype)
   ld['type'] = ltype
