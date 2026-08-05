@@ -250,13 +250,22 @@ class LanguageModel(torch.nn.Module):
     hn = [{} for i in range(batchsize)]
     for (layeridx, layer) in enumerate(self.layers):
       if layer in self.stateful_layers:
-        h0 = layer.new_state(x)
-        for batchidx in h0_split:
-          if h0_split[batchidx] is not None:
-            h0[batchidx].copy_(h0_split[batchidx][layeridx])
-        x, new_state = layer(x, h0)
+        old_states = [None]*batchsize
+        for s in h0_split:
+          if h0_split[s] is not None:
+            old_states[s] = h0_split[s][layeridx]
+        merged = layer.merge_states(x, old_states)
+        new_state = [None] * batchsize
+        out_y = [None] * batchsize
+        for (x_part, states_part, idxs_part) in merged:
+          (y_part, new_state_part) = layer(x_part, states_part)
+          for (y_one, new_state_one, idx) in zip(y_part, new_state_part, idxs_part):
+            new_state[idx] = new_state_one
+            out_y[idx] = y_one
+        x = torch.stack(out_y)
+        
         if out_device:
-          new_state=new_state.to(out_device)
+          new_state = [x.to(out_device) for x in new_state]
         for batchidx in range(batchsize):
           hn[batchidx][layeridx] = new_state[batchidx]
       else:

@@ -50,6 +50,11 @@ class GRIDGRU(torch.nn.Module):
     H = self.hidden_dim
     return x.new_zeros(N,H)
 
+  def merge_states(self, x, states):
+    new = self.new_state(x[0:1])[0]
+    states = [(new if s is None else s) for s in states]
+    return [(x, torch.stack(states), torch.arange(x.size(0)))]
+
   def forward(self, x, state = None):
     N = x.size(0)
     H = self.hidden_dim
