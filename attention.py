@@ -60,8 +60,7 @@ class AttentionLayer(torch.nn.Module):
     x_nt = x.view(N*T, -1)
     xp = torch.addmm(self.bias_in.expand(N*T, -1), x_nt, self.weight_in)
     query = xp[:, :self.q_num * self.kq_size].view(N, T, self.q_num, self.kq_size).transpose(1,2)
-      
-    # TODO handle variable state length
+
     key_value = xp[:, self.q_num*self.kq_size:].view(N, T, self.kv_num, self.kq_size + self.v_size)
     sinks_exp = self.sinks.expand(N, 1, -1, -1)
     if state is not None:
