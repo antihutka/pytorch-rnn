@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch.nn import Parameter, init
 
-#@torch.compile
+@torch.compile
 class AttentionLayer(torch.nn.Module):
   def __init__(self, input_dim, kq_size = 32, v_size = 32, kv_num = 2, q_num = 4, ctx_len = 256, weight_in = None, bias_in = None, weight_out = None, bias_out = None, sinks = None):
     super(AttentionLayer, self).__init__()
