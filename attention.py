@@ -67,7 +67,10 @@ class AttentionLayer(torch.nn.Module):
       key_value = torch.cat([sinks_exp, state, key_value], 1)
     else:
       key_value = torch.cat([sinks_exp, key_value], 1)
-    new_state = key_value[:, -(self.ctx_len-1):] # TODO ensure that sinks are stripped
+    if key_value.size(1) > self.ctx_len:
+      new_state = key_value[:, -(self.ctx_len-1):]
+    else:
+      new_state = key_value[:, 1:]
     key_value = key_value.transpose(1,2)
     key = key_value[:, :, :, :self.kq_size]
     value = key_value[:, :, :, self.kq_size:]
