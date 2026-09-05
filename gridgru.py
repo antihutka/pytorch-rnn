@@ -79,7 +79,7 @@ def swapout_tensor(t, stream):
     t.record_stream(stream)
   return st
 
-swapstream_g = torch.cuda.Stream()
+swapstream_g = torch.cuda.Stream() if torch.cuda.is_available() else None
 
 class GRIDGRUFunction(torch.autograd.Function):
   @staticmethod
