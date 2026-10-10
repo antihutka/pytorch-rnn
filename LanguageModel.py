@@ -49,8 +49,9 @@ def layer_from_layerdef(layerdef, storage, clone_tensors):
     wo = tensor_from_tensordef(layerdef['weight_out'], storage, clone_tensors)
     bo = tensor_from_tensordef(layerdef['bias_out'], storage, clone_tensors)
     si = tensor_from_tensordef(layerdef['sinks'], storage, clone_tensors)
+    tm = tensor_from_tensordef(layerdef['tmix'], storage, clone_tensors) if 'tmix' in layerdef else None
     return AttentionLayer(kq_size = layerdef['kq_size'], v_size = layerdef['v_size'], kv_num = layerdef['kv_num'], q_num = layerdef['q_num'], ctx_len = layerdef['ctx_len'],
-                          weight_in = wi, bias_in = bi, weight_out = wo, bias_out = bo, sinks = si, input_dim=1280), True
+                          weight_in = wi, bias_in = bi, weight_out = wo, bias_out = bo, sinks = si, tmix = tm, input_dim=wi.size(0)), True
   else:
     raise(Exception("unknown layer %s" % ltype))
 
@@ -74,7 +75,7 @@ def save_layer(layer, params):
   elif ltype == 'AttentionLayer':
     ld = {'weight_in': params[layer.weight_in], 'bias_in': params[layer.bias_in],
           'weight_out': params[layer.weight_out], 'bias_out': params[layer.bias_out],
-          'sinks': params[layer.sinks],
+          'sinks': params[layer.sinks], 'tmix': params[layer.tmix],
           'kq_size': layer.kq_size, 'v_size': layer.v_size, 'kv_num': layer.kv_num, 'q_num': layer.q_num, 'ctx_len': layer.ctx_len, 'input_dim': layer.input_dim}
   else:
     raise Exception('Unknown layer type ' + ltype)
